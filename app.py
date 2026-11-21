@@ -12,11 +12,19 @@ import streamlit as st
 import streamlit.components.v1 as components
 from edgar import Company, set_identity
 
-LOGO_PATH = "logo.png" if os.path.exists("logo.png") else None
+
+def find_logo_file() -> str | None:
+    for fname in os.listdir("."):
+        if fname.lower() in ("logo.png", "logo.jpg", "logo.jpeg", "logo.webp"):
+            return fname
+    return None
+
+
+LOGO_PATH = find_logo_file()
 
 st.set_page_config(
     page_title="BornYesterdayInvestEd.com — SEC Research, Video Briefings & Paper Trading",
-    page_icon=LOGO_PATH,
+    page_icon=LOGO_PATH or "📈",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -37,7 +45,7 @@ st.markdown(
         background: linear-gradient(135deg, #0f172a 0%, #1e293b 58%, #164e63 100%);
         border: 1px solid rgba(148, 163, 184, 0.25);
         border-radius: 18px;
-        padding: 1.5rem 1.85rem;
+        padding: 1.45rem 1.75rem;
         margin-bottom: 1.15rem;
         box-shadow: 0 10px 28px rgba(15, 23, 42, 0.14);
     }
@@ -48,20 +56,21 @@ st.markdown(
         padding: 0.25rem 0.75rem;
         border-radius: 999px;
         background: rgba(56, 189, 248, 0.18);
-        color: #7dd3fc;
+        color: #7dd3fc !important;
         border: 1px solid rgba(56, 189, 248, 0.35);
-        margin-bottom: 0.5rem;
+        margin-bottom: 0.55rem;
     }
-    .wl-hero-title {
-        font-size: 1.78rem;
+    .wl-hero .wl-hero-title {
+        font-size: 1.85rem;
         font-weight: 700;
-        color: #ffffff;
-        margin: 0 0 0.4rem 0;
+        color: #ffffff !important;
+        margin: 0 0 0.45rem 0;
         line-height: 1.25;
+        letter-spacing: -0.01em;
     }
-    .wl-hero-sub {
+    .wl-hero .wl-hero-sub {
         font-size: 0.95rem;
-        color: #e2e8f0;
+        color: #e2e8f0 !important;
         margin: 0;
         max-width: 880px;
         line-height: 1.58;
@@ -370,12 +379,13 @@ def fetch_stock_youtube_videos(ticker: str, company_name: str, yt_api_key: str =
 
 
 # ==============================================================================
-# 4. AD REVENUE & SPONSOR RENDERER
+# 4. AD REVENUE & SPONSOR RENDERER (CLEAN WHEN UNCONFIGURED)
 # ==============================================================================
 def render_ad_slot(
     slot_name: str,
     dimensions: str,
     enabled: bool,
+    preview_empty: bool,
     adsense_pub_id: str,
     adsense_slot_id: str,
     sponsor_title: str,
@@ -389,45 +399,33 @@ def render_ad_slot(
 
     if pub.startswith("ca-pub-") and slot:
         height_px = 100 if "728" in dimensions else 260
-        ad_html = f"""
-        <div style="text-align:center; overflow:hidden;">
-            <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={pub}" crossorigin="anonymous"></script>
-            <ins class="adsbygoogle"
-                 style="display:block"
-                 data-ad-client="{pub}"
-                 data-ad-slot="{slot}"
-                 data-ad-format="auto"
-                 data-full-width-responsive="true"></ins>
-            <script>(adsbygoogle = window.adsbygoogle || []).push({{}});</script>
-        </div>
-        """
+        ad_html = (
+            '<div style="text-align:center; overflow:hidden;">'
+            f'<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={pub}" crossorigin="anonymous"></script>'
+            '<ins class="adsbygoogle" style="display:block" '
+            f'data-ad-client="{pub}" data-ad-slot="{slot}" data-ad-format="auto" data-full-width-responsive="true"></ins>'
+            '<script>(adsbygoogle = window.adsbygoogle || []).push({});</script>'
+            '</div>'
+        )
         components.html(ad_html, height=height_px)
         return
 
     if sponsor_title.strip() and sponsor_url.strip():
         st.markdown(
-            f"""
-            <div class="ad-slot-wrapper">
-                <div class="ad-label">Sponsored Partner • {slot_name}</div>
-                <div class="ad-copy">
-                    <a href="{sponsor_url.strip()}" target="_blank" rel="noopener noreferrer" style="font-weight:600; text-decoration:none;">
-                        {sponsor_title.strip()} →
-                    </a>
-                </div>
-            </div>
-            """,
+            f'<div class="ad-slot-wrapper">'
+            f'<div class="ad-label">Sponsored Partner • {slot_name}</div>'
+            f'<div class="ad-copy"><a href="{sponsor_url.strip()}" target="_blank" rel="noopener noreferrer" style="font-weight:600; text-decoration:none;">'
+            f'{sponsor_title.strip()} →</a></div></div>',
             unsafe_allow_html=True,
         )
-    else:
+        return
+
+    if preview_empty:
         st.markdown(
-            f"""
-            <div class="ad-slot-wrapper">
-                <div class="ad-label">Ad Revenue Slot • {slot_name} ({dimensions})</div>
-                <div class="ad-copy">
-                    BornYesterdayInvestEd.com monetization slot — paste your <code>ca-pub-...</code> Google AdSense ID or Sponsor Link in the sidebar to serve live ads.
-                </div>
-            </div>
-            """,
+            f'<div class="ad-slot-wrapper">'
+            f'<div class="ad-label">Ad Revenue Slot Preview • {slot_name} ({dimensions})</div>'
+            f'<div class="ad-copy">Paste your <code>ca-pub-...</code> Google AdSense ID or Sponsor Link in the sidebar to serve live ads here.</div>'
+            f'</div>',
             unsafe_allow_html=True,
         )
 
@@ -755,13 +753,13 @@ else:
 st.sidebar.divider()
 with st.sidebar.expander("Ad Revenue & Sponsor Settings", expanded=False):
     show_ads = st.checkbox("Enable Ad Revenue Slots", value=True)
+    preview_empty_ads = st.checkbox("Preview Empty Ad Slots", value=False)
     adsense_pub = st.text_input("Google AdSense Publisher ID", value="", placeholder="ca-pub-xxxxxxxxxxxxxxxx")
     adsense_slot = st.text_input("AdSense Ad Unit Slot ID", value="", placeholder="1234567890")
     sponsor_title = st.text_input("Or Custom Sponsor / Affiliate Text", value="", placeholder="e.g., Try Commission-Free Paper Trading")
     sponsor_url = st.text_input("Custom Sponsor / Affiliate URL", value="", placeholder="https://...")
     st.caption(
-        "**Monetization Note:** Once `bornyesterdayinvested.com` is approved in Google AdSense, "
-        "paste your `ca-pub-...` ID and Slot ID above to serve live ads."
+        "**Monetization Note:** Empty ad slots stay hidden from visitors until you paste a `ca-pub-...` AdSense ID or Sponsor Link above."
     )
 
 with st.sidebar.expander("AI, YouTube & SEC API Settings", expanded=False):
@@ -801,7 +799,7 @@ with st.sidebar.expander("AI, YouTube & SEC API Settings", expanded=False):
 
 set_identity(sec_email)
 
-render_ad_slot("Sidebar Rectangle", "300×250", show_ads, adsense_pub, adsense_slot, sponsor_title, sponsor_url)
+render_ad_slot("Sidebar Rectangle", "300×250", show_ads, preview_empty_ads, adsense_pub, adsense_slot, sponsor_title, sponsor_url)
 
 
 # ==============================================================================
@@ -1012,17 +1010,20 @@ def get_analogy(
         try:
             from google import genai
             client = genai.Client(api_key=api_key.strip())
-            custom_block = f"\nExtra user preferences: {extra_instructions.strip()}" if extra_instructions.strip() else ""
-            q_block = f"\nSpecific question the learner asked: {focus_question}" if focus_question else ""
+            custom_block = f" Extra user preferences: {extra_instructions.strip()}." if extra_instructions.strip() else ""
+            q_block = f" Specific question the learner asked: {focus_question}." if focus_question else ""
             sec_snapshot = json.dumps({k: v for k, v in card.items() if k != "recent_filings"})
-            prompt = f"""You are a friendly, encouraging financial coach helping everyday learners understand SEC filings.
-Hobby / Analogy World: {interest}
-Coaching Style: {tone}{q_block}
-Verified SEC Data: {sec_snapshot}{custom_block}
-
-Format your response into two parts separated by '---KEY---':
-Part 1: A warm, easy-to-read 3-to-4 sentence explanation of {card['company']}'s Cash ({cash_str}), Operating Cash Flow ({cf_str}), Free Cash Flow ({fcf_str}), Runway ({runway if runway else 'Self-Funding'}), and Debt-to-Equity ({dte}x) inside the world of {interest}. Zero intimidating Wall Street jargon.
-Part 2: 3 short, friendly bullet points mapping your metaphor terms back to the real SEC numbers."""
+            runway_label = str(runway) if runway else "Self-Funding"
+            prompt = (
+                "You are a friendly, encouraging financial coach helping everyday learners understand SEC filings. "
+                f"Hobby / Analogy World: {interest}. Coaching Style: {tone}.{q_block} "
+                f"Verified SEC Data: {sec_snapshot}.{custom_block} "
+                "Format your response into two parts separated by '---KEY---': "
+                f"Part 1: A warm, easy-to-read 3-to-4 sentence explanation of {card['company']}'s Cash ({cash_str}), "
+                f"Operating Cash Flow ({cf_str}), Free Cash Flow ({fcf_str}), Runway ({runway_label}), "
+                f"and Debt-to-Equity ({dte}x) inside the world of {interest}. Zero intimidating Wall Street jargon. "
+                "Part 2: 3 short, friendly bullet points mapping your metaphor terms back to the real SEC numbers."
+            )
             res = client.models.generate_content(model=model_name, contents=prompt)
             text = res.text.strip()
             if "---KEY---" in text:
@@ -1204,12 +1205,37 @@ Part 2: 3 short, friendly bullet points mapping your metaphor terms back to the 
 
 
 # ==============================================================================
-# 10. HERO BANNER, LOGO, TOP AD SLOT & GLOBAL STOCK SELECTOR BAR
+# 10. HERO BANNER, STICK-FIGURE LOGO, AD SLOT & GLOBAL STOCK SELECTOR BAR
 # ==============================================================================
-hero_col1, hero_col2 = st.columns([0.16, 0.84], vertical_alignment="center")
+hero_col1, hero_col2 = st.columns([0.18, 0.82], vertical_alignment="center")
 with hero_col1:
     if LOGO_PATH:
-        st.image(LOGO_PATH, use_container_width=True)
+        st.image(LOGO_PATH, width=130)
+    else:
+        st.markdown(
+            """
+            <div style="background:#0f172a; border-radius:16px; padding:12px; text-align:center; border:1px solid rgba(148,163,184,0.25);">
+                <svg viewBox="0 0 120 120" width="96" height="96" xmlns="http://www.w3.org/2000/svg">
+                    <polyline points="12,102 44,74 56,82 82,52 92,58 108,22" fill="none" stroke="#22c55e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+                    <polygon points="108,16 96,24 111,31" fill="#22c55e"/>
+                    <circle cx="26" cy="76" r="7" fill="#ffffff"/>
+                    <line x1="26" y1="83" x2="26" y2="96" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>
+                    <line x1="26" y1="96" x2="20" y2="106" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>
+                    <line x1="26" y1="96" x2="33" y2="106" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>
+                    <circle cx="56" cy="54" r="8" fill="#ffffff"/>
+                    <line x1="56" y1="62" x2="56" y2="82" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round"/>
+                    <line x1="56" y1="82" x2="47" y2="106" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round"/>
+                    <line x1="56" y1="82" x2="66" y2="106" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round"/>
+                    <circle cx="88" cy="30" r="10" fill="#ffffff"/>
+                    <line x1="88" y1="40" x2="88" y2="72" stroke="#ffffff" stroke-width="5" stroke-linecap="round"/>
+                    <line x1="88" y1="72" x2="75" y2="106" stroke="#ffffff" stroke-width="5" stroke-linecap="round"/>
+                    <line x1="88" y1="72" x2="102" y2="106" stroke="#ffffff" stroke-width="5" stroke-linecap="round"/>
+                </svg>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
 with hero_col2:
     st.markdown(
         """
@@ -1226,7 +1252,7 @@ with hero_col2:
         unsafe_allow_html=True,
     )
 
-render_ad_slot("Top Leaderboard", "728×90", show_ads, adsense_pub, adsense_slot, sponsor_title, sponsor_url)
+render_ad_slot("Top Leaderboard", "728×90", show_ads, preview_empty_ads, adsense_pub, adsense_slot, sponsor_title, sponsor_url)
 
 sec_options = load_sec_directory()
 interest_options = [
@@ -1634,22 +1660,15 @@ else:
 
             for title, role, desc, extra_cls in specialists:
                 st.markdown(
-                    f"""
-                    <div class="team-card {card_cls} {extra_cls}">
-                        <div class="team-top">
-                            <div>
-                                <div class="team-title">{title}</div>
-                                <div class="team-role">{role}</div>
-                            </div>
-                            <span class="status-chip {chip_cls}">{chip_label}</span>
-                        </div>
-                        <p class="team-body">{desc}</p>
-                    </div>
-                    """,
+                    f'<div class="team-card {card_cls} {extra_cls}">'
+                    f'<div class="team-top"><div><div class="team-title">{title}</div>'
+                    f'<div class="team-role">{role}</div></div>'
+                    f'<span class="status-chip {chip_cls}">{chip_label}</span></div>'
+                    f'<p class="team-body">{desc}</p></div>',
                     unsafe_allow_html=True,
                 )
 
-            render_ad_slot("In-Feed Native Card", "Responsive", show_ads, adsense_pub, adsense_slot, sponsor_title, sponsor_url)
+            render_ad_slot("In-Feed Native Card", "Responsive", show_ads, preview_empty_ads, adsense_pub, adsense_slot, sponsor_title, sponsor_url)
 
         with team_right:
             st.markdown("#### Team Briefing & Video Research")
@@ -1698,12 +1717,7 @@ else:
                 focus_question=st.session_state.team_question,
             )
             st.markdown(
-                f"""
-                <div class="story-card">
-                    <div class="story-eyebrow">Sam's Plain-English Breakdown • {active_interest} Lens</div>
-                    {story}
-                </div>
-                """,
+                f'<div class="story-card"><div class="story-eyebrow">Sam\'s Plain-English Breakdown • {active_interest} Lens</div>{story}</div>',
                 unsafe_allow_html=True,
             )
 
