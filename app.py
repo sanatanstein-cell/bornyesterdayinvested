@@ -1071,4 +1071,1157 @@ def build_plain_english_fallback(
         growth_note = f" ({growth:+.1f}% period sales growth)" if growth is not None else ""
         base = (
             f"**Plain English Breakdown ({card['ticker']}):**\n"
-            f"- **What they bring in:** {
+            f"- What they bring in: is currently pacing at "
+            f"**{rev_str}** in annualized revenue{growth_note}.\n"
+            f"- **What '2x Sales' means:** If investors value the whole company at "
+            f"**2x annual sales**, that puts its price tag at **{two_x_str}** — "
+            "meaning buyers pay $2 for every $1 of yearly revenue before expenses.\n"
+            "- **Why it matters:** Lower-margin businesses often trade around 1x–2x "
+            "sales, while fast-growing software or tech companies can trade at 5x–10x+."
+        )
+    elif "dilut" in q_low or "runway" in q_low or "cash" in q_low or "burn" in q_low:
+        if runway is None:
+            base = (
+                f"**Plain English Breakdown ({card['ticker']}):**\n"
+                f"- Low dilution pressure: generated **{cf_str}** "
+                f"in positive operating cash flow ({fcf_str} Free Cash Flow) and holds "
+                f"**{cash_str}** in cash.\n"
+                "- **What that means for you:** Because the core business brings in "
+                "more cash than it spends, it doesn't urgently need to issue new shares."
+            )
+        else:
+            burn_str = fmt_money(abs(card["operating_cash_flow"]))
+            base = (
+                f"**Plain English Breakdown ({card['ticker']}):**\n"
+                f"- The cash clock: has **{cash_str}** in the bank "
+                f"while burning roughly **{burn_str}** per period, leaving about "
+                f"**{runway} quarters** of runway.\n"
+                "- **Share dilution explained simply:** If cash runway drops under "
+                "8 quarters, companies often raise cash by issuing new shares—shrinking "
+                "each existing share's slice of the company."
+            )
+    elif (
+        "debt" in q_low
+        or "current ratio" in q_low
+        or "balance sheet" in q_low
+        or "healthy" in q_low
+        or "big picture" in q_low
+    ):
+        runway_line = (
+            f"Their core operations bring in **{cf_str}** in cash flow, so they fund themselves."
+            if runway is None
+            else (
+                f"They are currently burning cash, giving them roughly **{runway} quarters** "
+                f"of runway from their **{cash_str}** cash reserve."
+            )
+        )
+        cr_disp = f"{cr}x" if cr is not None else "N/A"
+        dte_disp = f"{dte}x" if dte is not None else "N/A"
+        base = (
+            f"**Plain English Snapshot — {card['company']} ({card['ticker']}):**\n"
+            f"- **Cash vs. Burn:** {runway_line}\n"
+            f"- **Short-Term Bills (Current Ratio: {cr_disp}):** Measures whether short-term "
+            "assets cover bills due in the next 12 months (above `1.5x` is comfortable).\n"
+            f"- **Debt Load (Debt-to-Equity: {dte_disp}):** Compares total liabilities against "
+            "shareholder equity (under `1.5x–2.0x` is moderate)."
+        )
+    else:
+        cr_disp = f"{cr}x" if cr is not None else "N/A"
+        dte_disp = f"{dte}x" if dte is not None else "N/A"
+        base = (
+            f"**Plain English Answer for {card['company']} ({card['ticker']}):**\n"
+            f"- **Revenue pace:** **{rev_str}** annualized ({two_x_str} at 2x Sales).\n"
+            f"- **Cash & Operations:** **{cash_str}** cash on hand with **{cf_str}** "
+            f"operating cash flow ({card['health_badge']}).\n"
+            f"- **Balance-Sheet Ratios:** Current Ratio is **{cr_disp}** and "
+            f"Debt-to-Equity is **{dte_disp}**."
+        )
+
+    if topic_clean:
+        base += (
+            f"\n\n*Tip for **{topic_clean}** connections:* Add your free `GEMINI_API_KEY` "
+            "in Render Environment Variables (or the sidebar) to unlock live AI reasoning "
+            f"that weaves **{topic_clean}** directly into any follow-up question you ask!"
+        )
+    return base
+
+
+def generate_chat_reply(
+    card: dict,
+    messages: list[dict],
+    user_prompt: str,
+    connect_topic: str,
+    api_key: str,
+    model_name: str,
+) -> str:
+    if not api_key.strip():
+        return build_plain_english_fallback(card, user_prompt, connect_topic)
+
+    try:
+        from google import genai
+
+        client = genai.Client(api_key=api_key.strip())
+
+        runway_val = (
+            card["runway_quarters"]
+            if card["runway_quarters"] is not None
+            else "Self-Funding (Positive Operating Cash Flow)"
+        )
+        sec_context = {
+            "company": card["company"],
+            "ticker": card["ticker"],
+            "period": card["period"],
+            "filing_cadence": card["filing_cadence"],
+            "cash_on_hand": fmt_money(card["cash_on_hand"]),
+            "annualized_revenue": fmt_money(card["annualized_revenue"]),
+            "two_x_sales_valuation": fmt_money(card["two_x_sales_val"]),
+            "sales_growth_pct": card["sales_growth_pct"],
+            "operating_cash_flow": fmt_money(card["operating_cash_flow"]),
+            "free_cash_flow": fmt_money(card["free_cash_flow"]),
+            "current_ratio": card["current_ratio"],
+            "debt_to_equity": card["debt_to_equity"],
+            "runway_quarters": runway_val,
+            "health_badge": card["health_badge"],
+            "stress_tier": card["stress_tier"],
+            "recent_insider_form4_count": card["insider_filings_count"],
+        }
+
+        topic_clean = connect_topic.strip()
+        if topic_clean:
+            bridge_instruction = (
+                f"The user optionally asked to connect investing concepts to: '{topic_clean}'. "
+                f"Build organic, genuinely insightful connective pathways between how "
+                f"{card['company']} operates financially and real mechanics in '{topic_clean}'. "
+                "CRITICAL RULE: Do NOT force cheesy one-to-one props or corny metaphors for "
+                "every single number. Only draw a parallel where the underlying logic actually "
+                "clicks, and explain the rest in crisp, everyday Plain English."
+            )
+        else:
+            bridge_instruction = (
+                "The user chose Plain English mode (no outside hobby or metaphor). Explain "
+                "everything in clear, zero-jargon everyday English—like a sharp, friendly "
+                "peer breaking down the SEC numbers over coffee."
+            )
+
+        recent_turns = "\n".join(
+            f"{m['role'].upper()}: {m['content']}" for m in messages[-6:]
+        )
+
+        system_and_prompt = f"""You are the live interactive financial learning coach on BornYesterdayInvestEd.com.
+Your job is to help beginners understand real SEC filing numbers clearly, honestly, and conversationally—without Wall Street jargon or hype.
+
+VERIFIED SEC DATA FOR {card['company']} ({card['ticker']}):
+{json.dumps(sec_context, indent=2)}
+
+EXPLANATION STYLE & CONNECTIVE PATHWAY INSTRUCTION:
+{bridge_instruction}
+
+GUIDELINES:
+- Ground your answer in the verified SEC numbers above (cite exact dollar figures and ratios naturally).
+- Keep responses concise, scannable, and conversational (2 short paragraphs or 3-4 crisp bullets—under 180 words unless the user asks to go deep).
+- Never give personalized buy/sell financial advice or predict stock prices.
+- End with one natural, optional follow-up angle the user might want to explore next.
+
+CONVERSATION SO FAR:
+{recent_turns}
+
+USER'S NEW MESSAGE:
+{user_prompt}
+"""
+        res = client.models.generate_content(
+            model=model_name, contents=system_and_prompt
+        )
+        return res.text.strip()
+    except Exception as e:
+        fallback = build_plain_english_fallback(card, user_prompt, connect_topic)
+        return f"*Live AI note ({e}) — showing Plain English breakdown:*\n\n{fallback}"
+
+
+# ==============================================================================
+# 10. SLEEK BRAND MASTHEAD, COMPACT HERO BANNER & GLOBAL TICKER SELECTOR
+# ==============================================================================
+if LOGO_PATH:
+    ext = LOGO_PATH.rsplit(".", 1)[-1].lower()
+    mime = "image/jpeg" if ext in ("jpg", "jpeg") else f"image/{ext}"
+    with open(LOGO_PATH, "rb") as f:
+        b64_logo = base64.b64encode(f.read()).decode("utf-8")
+    brand_mark_html = (
+        f'<img src="data:{mime};base64,{b64_logo}" '
+        'alt="BornYesterdayInvestEd" class="wl-masthead-logo" />'
+    )
+else:
+    brand_mark_html = """
+    <svg class="wl-masthead-logo" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+        <rect width="120" height="120" rx="24" fill="#0f172a"/>
+        <polyline points="14,98 44,72 56,80 82,50 92,56 106,24" fill="none" stroke="#22c55e" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <polygon points="106,18 94,26 109,33" fill="#22c55e"/>
+        <circle cx="28" cy="74" r="7" fill="#ffffff"/>
+        <line x1="28" y1="81" x2="28" y2="94" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>
+        <line x1="28" y1="94" x2="22" y2="104" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>
+        <line x1="28" y1="94" x2="35" y2="104" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>
+        <circle cx="56" cy="52" r="8" fill="#ffffff"/>
+        <line x1="56" y1="60" x2="56" y2="80" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round"/>
+        <line x1="56" y1="80" x2="47" y2="104" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round"/>
+        <line x1="56" y1="80" x2="66" y2="104" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round"/>
+        <circle cx="88" cy="30" r="10" fill="#ffffff"/>
+        <line x1="88" y1="40" x2="88" y2="70" stroke="#ffffff" stroke-width="5" stroke-linecap="round"/>
+        <line x1="88" y1="70" x2="75" y2="104" stroke="#ffffff" stroke-width="5" stroke-linecap="round"/>
+        <line x1="88" y1="70" x2="102" y2="104" stroke="#ffffff" stroke-width="5" stroke-linecap="round"/>
+    </svg>
+    """
+
+st.markdown(
+    f"""
+    <div class="wl-masthead">
+        {brand_mark_html}
+        <div>
+            <div class="wl-masthead-name">BornYesterdayInvestEd.com</div>
+            <div class="wl-masthead-tagline">SEC EDGAR Filing Miner • Plain-English AI Coach • Textbook Charts • Paper Trading</div>
+        </div>
+    </div>
+    <div class="wl-hero">
+        <div class="wl-hero-badge">Zero-Jargon Market Research & Practice Sandbox</div>
+        <p class="wl-hero-sub">
+            Start from square one and build real market literacy. Pick any public company below—mine its newest SEC EDGAR filings (10-Q, 10-K, 8-K, Form 4),
+            chat live with an AI coach in <strong>Plain English</strong> (or connect concepts to any topic you already know),
+            and test your ideas risk-free in your Mock Trading Account.
+        </p>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+render_ad_slot(
+    "Top Leaderboard",
+    "728×90",
+    show_ads,
+    preview_empty_ads,
+    adsense_pub,
+    adsense_slot,
+    sponsor_title,
+    sponsor_url,
+)
+
+sec_options = load_sec_directory()
+
+col_in1, col_in2 = st.columns([3.2, 0.8])
+with col_in1:
+    selected_company = searchable_selectbox(
+        "Choose a Company to Research (Search or Type Any SEC Ticker)",
+        options=sec_options,
+        index=0,
+        placeholder="Type a company name or ticker (e.g., Rocket, NVIDIA, PLTR, SMR)...",
+    )
+with col_in2:
+    st.write("")
+    st.write("")
+    if st.button(
+        "Refresh SEC Data",
+        help="Clear cache and pull newest SEC filings & quotes",
+        use_container_width=True,
+    ):
+        build_health_card.clear()
+        fetch_stock_youtube_videos.clear()
+        fetch_market_price.clear()
+        st.rerun()
+
+ticker = selected_company.split(" — ")[0].strip().upper() if selected_company else "LUNR"
+
+with st.spinner(f"Mining latest SEC filings & market quotes for {ticker}..."):
+    try:
+        card = build_health_card(ticker)
+        live_quote, quote_src = fetch_market_price(ticker)
+    except Exception as e:
+        st.error(
+            f"Could not find SEC XBRL financials for '{ticker}' ({e}). "
+            "Try selecting another company above."
+        )
+        st.stop()
+
+
+# ==============================================================================
+# 11. PAGE A: IN-DEPTH DEFINITIONS & TEXTBOOK GUIDE (WITH INTERACTIVE CHARTS)
+# ==============================================================================
+if page == "Definitions & Textbook Guide":
+
+    def back_to_main():
+        st.session_state.active_page = "Research & Paper Trading Studio"
+
+    top_b1, top_b2 = st.columns([3.2, 1])
+    with top_b1:
+        st.header("Textbook Financial Definitions & Visual Guide")
+        st.markdown(
+            "Plain-English & formal textbook definitions, formulas, institutional "
+            f"benchmarks, and live charts grounded in **{card['company']} ({card['ticker']})**."
+        )
+    with top_b2:
+        st.write("")
+        st.button(
+            "← Back to Studio",
+            on_click=back_to_main,
+            type="primary",
+            use_container_width=True,
+        )
+
+    filter_cat = st.radio(
+        "Filter Textbook Module:",
+        [
+            "All Modules (10)",
+            "Balance Sheet Health",
+            "Valuation Multiples ('2x Sales')",
+            "Top-Line Momentum (Sales Growth)",
+            "Portfolio & Simulator",
+        ],
+        horizontal=True,
+    )
+
+    st.markdown("### Visual Chart Lab (Live SEC Data + Benchmark Curves)")
+    chart_tab1, chart_tab2, chart_tab3 = st.tabs(
+        [
+            "Chart 1: Balance-Sheet Health Benchmarks",
+            "Chart 2: '2x Sales' Valuation Multiple Ladder",
+            "Chart 3: Sales Growth Compounding Curves",
+        ]
+    )
+    with chart_tab1:
+        render_balance_sheet_health_chart(card)
+        st.caption(
+            "Compares the selected company's Current Ratio, Debt-to-Equity leverage, "
+            "and Cash Runway against standard institutional safety guardrails."
+        )
+    with chart_tab2:
+        render_2x_sales_chart(card)
+        st.caption(
+            "Illustrates how company valuation scales at 1x, 2x, 4x, and 8x annualized "
+            "revenue—showing why '2x sales' doubles top-line revenue to price the business."
+        )
+    with chart_tab3:
+        render_sales_growth_chart(card)
+        st.caption(
+            "Demonstrates how 5%, 15%, 30%, and 50% annual sales growth rates compound "
+            "a company's top line over a 5-year horizon."
+        )
+
+    st.divider()
+    st.markdown("### Textbook Reference Entries")
+
+    terms_to_show = list(DEFINITIONS_DB.keys())
+    if picked_term != "Show All Terms (Textbook Guide)" and picked_term in DEFINITIONS_DB:
+        terms_to_show = [picked_term] + [t for t in terms_to_show if t != picked_term]
+
+    for term in terms_to_show:
+        item = DEFINITIONS_DB[term]
+        if (
+            filter_cat == "Balance Sheet Health"
+            and item["category"] != "Balance Sheet Health"
+        ):
+            continue
+        if (
+            filter_cat == "Valuation Multiples ('2x Sales')"
+            and item["category"] != "Valuation Multiples"
+        ):
+            continue
+        if (
+            filter_cat == "Top-Line Momentum (Sales Growth)"
+            and item["category"] != "Top-Line Momentum"
+        ):
+            continue
+        if (
+            filter_cat == "Portfolio & Simulator"
+            and item["category"] != "Portfolio & Simulator"
+        ):
+            continue
+
+        is_highlighted = term == picked_term
+        with st.container(border=True):
+            c_head, c_badge = st.columns([4, 1.1])
+            c_head.subheader(f"{'Focused Entry: ' if is_highlighted else ''}{term}")
+            c_badge.caption(f"**{item['category']}**\n\n`{item['range']}`")
+
+            st.markdown(
+                safe_md(f"**Plain-English & Textbook Definition:** {item['textbook']}")
+            )
+            st.markdown(
+                f'<div class="formula-pill">Formula: {item["formula"]}</div>',
+                unsafe_allow_html=True,
+            )
+            st.markdown(safe_md(f"**Institutional Benchmarks:** {item['benchmarks']}"))
+            st.markdown(safe_md(f"**Why It Matters:** {item['why_it_matters']}"))
+
+
+# ==============================================================================
+# 12. PAGE B: MOCK TRADING ACCOUNT (PAPER PORTFOLIO)
+# ==============================================================================
+elif page == "Mock Trading Account":
+
+    def back_to_studio():
+        st.session_state.active_page = "Research & Paper Trading Studio"
+
+    h1, h2 = st.columns([3.2, 1])
+    with h1:
+        st.header("Mock Trading Account (Paper Portfolio)")
+        st.caption(
+            "Practice turning SEC balance-sheet and valuation research into portfolio "
+            "decisions using virtual cash—zero real money at risk."
+        )
+    with h2:
+        st.write("")
+        st.button(
+            "← Back to Research Studio",
+            on_click=back_to_studio,
+            type="primary",
+            use_container_width=True,
+        )
+
+    if not acct["created"]:
+        with st.container(border=True):
+            st.subheader("Create Your Practice Portfolio")
+            st.write(
+                "Open a virtual brokerage account to test how companies with strong "
+                "balance-sheet health, reasonable sales multiples, or accelerating "
+                "revenue growth perform over time."
+            )
+            c_setup1, c_setup2 = st.columns(2)
+            acct_name = c_setup1.text_input(
+                "Portfolio Name", value="My Research Portfolio"
+            )
+            start_balance = c_setup2.selectbox(
+                "Starting Virtual Cash",
+                [10000.0, 25000.0, 50000.0, 100000.0],
+                index=1,
+                format_func=lambda x: f"${x:,.0f}",
+            )
+            if st.button("Open Mock Trading Account", type="primary"):
+                st.session_state.paper_account = {
+                    "created": True,
+                    "name": acct_name.strip() or "My Practice Portfolio",
+                    "starting_cash": float(start_balance),
+                    "cash": float(start_balance),
+                    "holdings": {},
+                    "trades": [],
+                }
+                st.rerun()
+    else:
+        holdings_rows = []
+        invested_value = 0.0
+        for sym, pos in acct["holdings"].items():
+            live_px, _ = fetch_market_price(sym)
+            mark_px = live_px if live_px is not None else pos["avg_cost"]
+            mkt_val = pos["shares"] * mark_px
+            cost_basis = pos["shares"] * pos["avg_cost"]
+            pnl = mkt_val - cost_basis
+            pnl_pct = (
+                ((mark_px - pos["avg_cost"]) / pos["avg_cost"] * 100.0)
+                if pos["avg_cost"] > 0
+                else 0.0
+            )
+            invested_value += mkt_val
+            holdings_rows.append(
+                {
+                    "Ticker": sym,
+                    "Company": pos["company"],
+                    "Shares": round(pos["shares"], 4),
+                    "Avg Cost": f"${pos['avg_cost']:,.2f}",
+                    "Current Price": f"${mark_px:,.2f}",
+                    "Market Value": mkt_val,
+                    "Unrealized P&L": pnl,
+                    "Return (%)": f"{pnl_pct:+.2f}%",
+                }
+            )
+
+        total_equity = acct["cash"] + invested_value
+        total_pnl = total_equity - acct["starting_cash"]
+        total_pnl_pct = (
+            (total_pnl / acct["starting_cash"] * 100.0)
+            if acct["starting_cash"] > 0
+            else 0.0
+        )
+
+        st.subheader(f"{acct['name']}")
+        k1, k2, k3, k4 = st.columns(4)
+        k1.metric(
+            "Total Account Value",
+            fmt_money(total_equity),
+            delta=f"{total_pnl_pct:+.2f}% overall",
+        )
+        k2.metric("Available Virtual Cash", fmt_money(acct["cash"]))
+        k3.metric("Invested in Stocks", fmt_money(invested_value))
+        k4.metric("Total Gain / Loss", fmt_money(total_pnl))
+
+        st.divider()
+        trade_col, port_col = st.columns([1.05, 1.45], gap="large")
+
+        with trade_col:
+            with st.container(border=True):
+                st.markdown(f"#### Place a Paper Trade: `{ticker}`")
+                st.caption(f"{card['company']} • **{card['health_badge']}**")
+
+                default_px = live_quote if live_quote is not None else 25.00
+                st.caption(f"Quote Source: **{quote_src}**")
+
+                side = st.radio("Order Action", ["Buy", "Sell"], horizontal=True)
+                exec_price = st.number_input(
+                    "Execution Price ($)",
+                    min_value=0.01,
+                    value=float(default_px),
+                    step=0.50,
+                )
+                dollar_amt = st.number_input(
+                    "Order Amount ($ USD)",
+                    min_value=10.0,
+                    max_value=1000000.0,
+                    value=1000.0,
+                    step=100.0,
+                )
+                est_shares = dollar_amt / exec_price
+                st.write(
+                    safe_md(f"Estimated Shares: **{est_shares:.4f} shares** of **{ticker}**")
+                )
+
+                if st.button(
+                    f"Submit Paper {side} Order", type="primary", use_container_width=True
+                ):
+                    if side == "Buy":
+                        if dollar_amt > acct["cash"]:
+                            st.error("Insufficient virtual cash for this order.")
+                        else:
+                            acct["cash"] -= dollar_amt
+                            existing = acct["holdings"].get(ticker)
+                            if existing:
+                                new_shares = existing["shares"] + est_shares
+                                new_avg = (
+                                    (existing["shares"] * existing["avg_cost"])
+                                    + dollar_amt
+                                ) / new_shares
+                                acct["holdings"][ticker] = {
+                                    "company": card["company"],
+                                    "shares": new_shares,
+                                    "avg_cost": new_avg,
+                                }
+                            else:
+                                acct["holdings"][ticker] = {
+                                    "company": card["company"],
+                                    "shares": est_shares,
+                                    "avg_cost": exec_price,
+                                }
+                            acct["trades"].insert(
+                                0,
+                                {
+                                    "Time": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                                    "Action": "BUY",
+                                    "Ticker": ticker,
+                                    "Shares": round(est_shares, 4),
+                                    "Price": f"${exec_price:,.2f}",
+                                    "Total": fmt_money(dollar_amt),
+                                },
+                            )
+                            st.success(
+                                safe_md(
+                                    f"Bought {est_shares:.4f} shares of {ticker} "
+                                    f"for {fmt_money(dollar_amt)}."
+                                )
+                            )
+                            st.rerun()
+                    else:
+                        existing = acct["holdings"].get(ticker)
+                        if not existing or existing["shares"] <= 0:
+                            st.error(
+                                f"You don't currently own any shares of {ticker} to sell."
+                            )
+                        else:
+                            sell_shares = min(est_shares, existing["shares"])
+                            proceeds = sell_shares * exec_price
+                            acct["cash"] += proceeds
+                            rem_shares = existing["shares"] - sell_shares
+                            if rem_shares <= 0.0001:
+                                del acct["holdings"][ticker]
+                            else:
+                                existing["shares"] = rem_shares
+                            acct["trades"].insert(
+                                0,
+                                {
+                                    "Time": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                                    "Action": "SELL",
+                                    "Ticker": ticker,
+                                    "Shares": round(sell_shares, 4),
+                                    "Price": f"${exec_price:,.2f}",
+                                    "Total": fmt_money(proceeds),
+                                },
+                            )
+                            st.success(
+                                safe_md(
+                                    f"Sold {sell_shares:.4f} shares of {ticker} "
+                                    f"for {fmt_money(proceeds)}."
+                                )
+                            )
+                            st.rerun()
+
+            with st.expander("Account Settings & Reset", expanded=False):
+                if st.button("Reset Account & Start Over", use_container_width=True):
+                    st.session_state.paper_account["created"] = False
+                    st.rerun()
+
+        with port_col:
+            st.markdown("#### Current Holdings")
+            if holdings_rows:
+                df_hold = pd.DataFrame(holdings_rows)
+                df_display = df_hold.copy()
+                df_display["Market Value"] = df_display["Market Value"].apply(fmt_money)
+                df_display["Unrealized P&L"] = df_display["Unrealized P&L"].apply(
+                    fmt_money
+                )
+                st.dataframe(df_display, use_container_width=True, hide_index=True)
+
+                alloc_fig = go.Figure(
+                    data=[
+                        go.Pie(
+                            labels=["Virtual Cash"]
+                            + [r["Ticker"] for r in holdings_rows],
+                            values=[acct["cash"]]
+                            + [r["Market Value"] for r in holdings_rows],
+                            hole=0.48,
+                        )
+                    ]
+                )
+                alloc_fig.update_layout(
+                    height=260,
+                    margin=dict(l=10, r=10, t=20, b=10),
+                    paper_bgcolor="rgba(0,0,0,0)",
+                )
+                st.plotly_chart(alloc_fig, use_container_width=True)
+            else:
+                st.info(
+                    "Your portfolio is currently 100% virtual cash. Use the order "
+                    "ticket on the left to place your first practice trade."
+                )
+
+            if acct["trades"]:
+                st.markdown("#### Recent Trade History")
+                st.dataframe(
+                    pd.DataFrame(acct["trades"]),
+                    use_container_width=True,
+                    hide_index=True,
+                )
+
+
+# ==============================================================================
+# 13. PAGE C: MAIN RESEARCH & PAPER TRADING STUDIO (LIVE CHATBOT + SEC MINER)
+# ==============================================================================
+else:
+    top_m1, top_m2, top_m3, top_m4, top_m5 = st.columns(5)
+    top_m1.metric(
+        "Latest Market Price",
+        f"${live_quote:,.2f}" if live_quote else "N/A",
+        delta=quote_src,
+    )
+    top_m2.metric("Cash on Hand", fmt_money(card["cash_on_hand"]))
+    top_m3.metric("Annualized Sales", fmt_money(card["annualized_revenue"]))
+    top_m4.metric("2x Sales Valuation", fmt_money(card["two_x_sales_val"]))
+    top_m5.metric("SEC Stress Tier", card["stress_tier"])
+
+    tab_chat, tab_val, tab_sim, tab_check = st.tabs(
+        [
+            "1. Live AI Coach, SEC Filings & Video Briefing",
+            "2. Balance Sheet, '2x Sales' & Sales Growth",
+            "3. Wealth Glide-Path Simulator",
+            "4. Self-Check Practice",
+        ]
+    )
+
+    with tab_chat:
+        left_col, right_col = st.columns([1.45, 1.0], gap="large")
+
+        with left_col:
+            st.subheader(
+                f"Ask the Live AI Coach about {card['company']} ({card['ticker']})"
+            )
+
+            with st.container(border=True):
+                mode_col1, mode_col2 = st.columns([1.15, 1.35])
+                with mode_col1:
+                    explanation_mode = st.radio(
+                        "How should I explain concepts?",
+                        [
+                            "Plain English (Simple & Jargon-Free)",
+                            "Connect to a Topic I Already Know",
+                        ],
+                        index=0,
+                        key=f"exp_mode_{ticker}",
+                    )
+                with mode_col2:
+                    if explanation_mode == "Connect to a Topic I Already Know":
+                        connect_topic = st.text_input(
+                            "What topic or field do you want to connect to?",
+                            placeholder="e.g., NBA salary cap, music production, gaming...",
+                            key=f"topic_box_{ticker}",
+                        )
+                    else:
+                        connect_topic = ""
+                        st.caption(
+                            "**Plain English Mode active:** No metaphors—just clear, "
+                            "straightforward answers grounded in the real SEC filing."
+                        )
+
+            if ticker not in st.session_state.chat_histories:
+                runway_intro = (
+                    f"generates **{fmt_money(card['operating_cash_flow'])} in positive "
+                    "operating cash flow"
+                    if card["runway_quarters"] is None
+                    else f"has roughly  quarters of cash runway"
+                )
+                st.session_state.chat_histories[ticker] = [
+                    {
+                        "role": "assistant",
+                        "content": (
+                            f"I've pulled 's ({card['ticker']}) latest "
+                            f"** SEC filing (period `{card['period']}`). "
+                            f"In plain English: they hold **{fmt_money(card['cash_on_hand'])}** "
+                            f"in cash, pace at **{fmt_money(card['annualized_revenue'])}** in "
+                            f"yearly sales, and {runway_intro}.\n\n"
+                            "Ask me anything below—like what a term means, whether their "
+                            "balance sheet looks healthy, or how this business model compares "
+                            "to a field you already know."
+                        ),
+                    }
+                ]
+
+            history = st.session_state.chat_histories[ticker]
+
+            st.caption("Quick prompts to get started:")
+            qp1, qp2, qp3, qp4 = st.columns([1.1, 1.1, 1.1, 0.7])
+            queued_prompt = None
+            if qp1.button("Plain-English health check", use_container_width=True):
+                queued_prompt = (
+                    f"Give me a plain-English checkup on {card['ticker']}'s balance "
+                    "sheet and cash flow."
+                )
+            if qp2.button("Explain '2x Sales' here", use_container_width=True):
+                queued_prompt = (
+                    f"In plain English, what does a '2x Sales' valuation look like for "
+                    f"{card['ticker']}?"
+                )
+            if qp3.button("Any dilution or debt risk?", use_container_width=True):
+                queued_prompt = (
+                    f"Does {card['ticker']} have any share dilution or debt risk based "
+                    "on these numbers?"
+                )
+            if qp4.button("Clear chat", use_container_width=True):
+                del st.session_state.chat_histories[ticker]
+                st.rerun()
+
+            chat_box = st.container(height=410, border=True)
+            with chat_box:
+                for msg in history:
+                    with st.chat_message(msg["role"]):
+                        st.markdown(safe_md(msg["content"]))
+
+            topic_hint = connect_topic.strip() or "plain English"
+            typed_prompt = st.chat_input(
+                f"Ask anything about {card['ticker']}, SEC terms, or {topic_hint}..."
+            )
+            active_prompt = queued_prompt or typed_prompt
+
+            if active_prompt:
+                history.append({"role": "user", "content": active_prompt})
+                with chat_box:
+                    with st.chat_message("user"):
+                        st.markdown(safe_md(active_prompt))
+                    with st.chat_message("assistant"):
+                        with st.spinner("Thinking through the SEC numbers..."):
+                            reply = generate_chat_reply(
+                                card=card,
+                                messages=history,
+                                user_prompt=active_prompt,
+                                connect_topic=connect_topic,
+                                api_key=active_gemini_key,
+                                model_name=ai_model,
+                            )
+                            st.markdown(safe_md(reply))
+                history.append({"role": "assistant", "content": reply})
+                st.rerun()
+
+        with right_col:
+            st.subheader("SEC Filing Snapshot & Video")
+
+            tier_desc = {
+                "Fortress Liquidity": (
+                    "Positive operating cash flow paired with conservative balance-sheet "
+                    "leverage gives the business strong internal funding resilience."
+                ),
+                "Steady Runway": (
+                    "Liquid reserves cover at least 8 quarters at current burn rates "
+                    "(or operations are cash-flow positive), providing multi-year "
+                    "operational breathing room."
+                ),
+                "Speculative Cash Burn": (
+                    "Cash runway sits below 8 quarters at current operating burn, "
+                    "signaling an elevated likelihood of future capital raises or dilution."
+                ),
+            }[card["stress_tier"]]
+
+            st.markdown(
+                f"""
+                <div class="speculator-box">
+                    <div style="font-weight:700; font-size:0.96rem; margin-bottom:0.35rem;">
+                        Balance-Sheet Stress Tier: <span style="color:#8b5cf6;">{card['stress_tier']}</span>
+                    </div>
+                    <p style="margin:0 0 0.4rem 0; font-size:0.89rem; line-height:1.5;">{tier_desc}</p>
+                    <p style="margin:0; font-size:0.76rem; opacity:0.75;">
+                        <em>Educational Note:</em> Measures corporate liquidity from SEC filings—not stock price direction.
+                    </p>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+            with st.container(border=True):
+                st.markdown(f"#### YouTube Analysis for `{card['ticker']}`")
+                yt_videos = fetch_stock_youtube_videos(
+                    card["ticker"], card["company"], yt_api_key
+                )
+                if yt_videos:
+                    vid_labels = [
+                        f"{v['title']} ({v['channel']})" for v in yt_videos
+                    ]
+                    chosen_idx = st.selectbox(
+                        "Select a stock video:",
+                        range(len(yt_videos)),
+                        format_func=lambda i: vid_labels[i],
+                        key=f"yt_pick_{ticker}",
+                    )
+                    selected_vid = yt_videos[chosen_idx]
+                    st.video(selected_vid["url"])
+                    st.caption(
+                        f"Source: **{selected_vid['channel']} • "
+                        f"[Open on YouTube]({selected_vid['url']})"
+                    )
+                else:
+                    yt_search_link = (
+                        "https://www.youtube.com/results?search_query="
+                        f"{quote_plus(card['ticker'] + ' ' + card['company'] + ' stock analysis')}"
+                    )
+                    st.info(
+                        f"[Watch the latest {card['ticker']} stock analysis videos on YouTube →]({yt_search_link})"
+                    )
+
+            with st.expander(
+                f"Latest Mined SEC Filings for {card['ticker']} (10-Q, 10-K, 8-K, Form 4)",
+                expanded=True,
+            ):
+                st.caption(
+                    f"Recent Form 4 Insider Filings:  "
+                    f"(Latest: **)"
+                )
+                if card["recent_filings"]:
+                    df_filings = pd.DataFrame(card["recent_filings"])
+                    st.dataframe(
+                        df_filings,
+                        use_container_width=True,
+                        hide_index=True,
+                        column_config={
+                            "SEC Link": st.column_config.LinkColumn(
+                                "SEC Filing", display_text="Open Filing →"
+                            )
+                        },
+                    )
+                else:
+                    st.write("No recent filing index rows returned for this ticker.")
+
+            with st.container(border=True):
+                st.markdown(f"**Practice trading {card['ticker']} risk-free**")
+                st.caption(
+                    f"Test your research in your Mock Trading Account ({fmt_money(acct['cash'])} virtual cash available)."
+                    if acct["created"]
+                    else "Open a free Mock Trading Account to practice trading with virtual cash."
+                )
+
+                def open_trade_page():
+                    st.session_state.active_page = "Mock Trading Account"
+
+                st.button(
+                    "Open Mock Trading Account →",
+                    on_click=open_trade_page,
+                    use_container_width=True,
+                )
+
+    with tab_val:
+        h_v1, h_v2 = st.columns([3.2, 1.2])
+        with h_v1:
+            st.subheader(
+                f"{card['company']} ({card['ticker']}) — Balance Sheet, '2x Sales' & Growth"
+            )
+        with h_v2:
+            st.button(
+                "Open Textbook Definitions →",
+                on_click=go_to_definitions,
+                args=("Price-to-Sales Ratio ('2x Sales')",),
+                use_container_width=True,
+            )
+
+        if "Self-Funding" in card["health_badge"] or "Healthy" in card["health_badge"]:
+            st.success(f"Filing Status: {card['health_badge']} • Period: {card['period']}")
+        else:
+            st.warning(f"Filing Status: {card['health_badge']} • Period: {card['period']}")
+
+        cr_str = (
+            f"{card['current_ratio']}x" if card["current_ratio"] is not None else "N/A"
+        )
+        dte_str = (
+            f"{card['debt_to_equity']}x"
+            if card["debt_to_equity"] is not None
+            else "N/A"
+        )
+
+        m1, m2, m3, m4, m5, m6 = st.columns(6)
+        m1.metric("Cash on Hand", fmt_money(card["cash_on_hand"]))
+        m2.metric("Annualized Sales", fmt_money(card["annualized_revenue"]))
+        m3.metric("2x Sales Valuation", fmt_money(card["two_x_sales_val"]))
+        m4.metric(
+            "Period Sales Growth",
+            (
+                f"{card['sales_growth_pct']:+.1f}%"
+                if card["sales_growth_pct"] is not None
+                else "N/A"
+            ),
+        )
+        m5.metric("Current Ratio", cr_str)
+        m6.metric("Debt-to-Equity", dte_str)
+
+        st.divider()
+        c_left, c_right = st.columns(2, gap="large")
+        with c_left:
+            render_balance_sheet_health_chart(card)
+            st.markdown(
+                safe_md(
+                    "**Plain-English Takeaway (Balance Sheet):** A **Current Ratio** "
+                    "above `1.5x` indicates short-term assets comfortably cover short-term "
+                    "bills, while **Debt-to-Equity** below `2.0x` keeps debt leverage "
+                    f"moderate. {card['company']} reported a Current Ratio of **{cr_str}** "
+                    f"and Debt-to-Equity of **{dte_str}**."
+                )
+            )
+        with c_right:
+            render_2x_sales_chart(card)
+            st.markdown(
+                safe_md(
+                    "**Plain-English Takeaway ('2x Sales'):** Price-to-Sales compares "
+                    f"Market Cap to Annual Revenue. At **{fmt_money(card['annualized_revenue'])}** "
+                    f"in annualized revenue, a **2x Sales** multiple implies a "
+                    f"**{fmt_money(card['two_x_sales_val'])}** company valuation—whereas "
+                    "faster-growing software firms often trade at 6x–10x sales."
+                )
+            )
+
+        st.divider()
+        render_sales_growth_chart(card)
+
+    with tab_sim:
+        h_col1, h_col2 = st.columns([3.2, 1.2])
+        with h_col1:
+            st.subheader("Dynamic Wealth Glide-Path & Escape Velocity Simulator")
+        with h_col2:
+            st.button(
+                "Open Slider Definitions →",
+                on_click=go_to_definitions,
+                args=("Dynamic Wealth Glide-Path",),
+                use_container_width=True,
+            )
+
+        st.markdown(
+            """
+            <div class="guide-box">
+                <strong>How this simulator works:</strong> A <strong>Dynamic Glide-Path</strong> models starting with higher-growth investments
+                early on (<em>Growth Mode CAGR</em>) and gradually shifting toward steadier returns (<em>Maintenance CAGR</em>) over time.
+                The green dotted line marks <strong>Escape Velocity</strong>—the year when monthly investment gains exceed your monthly deposits.
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        c1, c2, c3, c4, c5 = st.columns(5)
+        start_cap = c1.slider("Starting Capital ($)", 500, 50000, 18000, step=500)
+        monthly_add = c2.slider("Monthly Deposit ($)", 0, 2000, 100, step=50)
+        growth_cagr = c3.slider("Growth Mode CAGR (%)", 8, 50, 28, step=1)
+        maint_cagr = c4.slider("Maintenance CAGR (%)", 4, 18, 9, step=1)
+        years = c5.slider("Horizon (Years)", 5, 35, 20, step=1)
+
+        months = np.arange(0, years * 12 + 1)
+        glide_vals = [float(start_cap)]
+        bench_vals = [float(start_cap)]
+        escape_year = None
+
+        for m in range(1, len(months)):
+            progress = m / (years * 12)
+            current_cagr = growth_cagr - 0.5 * (growth_cagr - maint_cagr) * progress
+            r_m = (current_cagr / 100.0) / 12.0
+            monthly_gain = glide_vals[-1] * r_m
+            if escape_year is None and monthly_add > 0 and monthly_gain >= monthly_add:
+                escape_year = round(m / 12.0, 1)
+            elif escape_year is None and monthly_add == 0:
+                escape_year = 0.0
+            glide_vals.append(glide_vals[-1] + monthly_gain + monthly_add)
+            bench_vals.append(bench_vals[-1] * (1 + 0.08 / 12.0) + monthly_add)
+
+        fig = go.Figure()
+        fig.add_trace(
+            go.Scatter(
+                x=months / 12.0,
+                y=glide_vals,
+                mode="lines",
+                name="Dynamic Glide-Path Strategy",
+                line=dict(color="#0284c7", width=3),
+                fill="tozeroy",
+                fillcolor="rgba(2, 132, 199, 0.14)",
+            )
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=months / 12.0,
+                y=bench_vals,
+                mode="lines",
+                name="8% Standard Index Benchmark",
+                line=dict(color="#64748b", width=2, dash="dash"),
+            )
+        )
+        if escape_year is not None and escape_year > 0:
+            fig.add_vline(
+                x=escape_year,
+                line_dash="dot",
+                line_color="#10b981",
+                annotation_text=f"Escape Velocity (Year {escape_year})",
+                annotation_position="top left",
+            )
+        fig.update_layout(
+            xaxis_title="Years",
+            yaxis_title="Portfolio Value ($)",
+            hovermode="x unified",
+            height=420,
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+        total_contributed = start_cap + monthly_add * 12 * years
+        ending_glide = glide_vals[-1]
+        ending_bench = bench_vals[-1]
+        compounding_multiple = round(ending_glide / max(total_contributed, 1), 1)
+
+        s1, s2, s3, s4 = st.columns(4)
+        s1.metric("Total Cash Contributed", fmt_money(total_contributed))
+        s2.metric("8% Index Benchmark", fmt_money(ending_bench))
+        s3.metric(
+            "Glide-Path Projected Value",
+            fmt_money(ending_glide),
+            delta=f"{compounding_multiple}x cash invested",
+        )
+        s4.metric(
+            "Escape Velocity Milestone",
+            (
+                "Immediate (No Deposits)"
+                if escape_year == 0.0
+                else (f"Year {escape_year}" if escape_year else "Beyond Horizon")
+            ),
+        )
+
+    with tab_check:
+        st.subheader(
+            f"Applied Concept Check — Live Case: {card['company']} ({card['ticker']})"
+        )
+        st.markdown(
+            """
+            <div class="guide-box">
+                Practice applying plain-English definitions to real SEC numbers with instant explanations—no scores, streaks, or XP.
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        practice_bank = [
+            {
+                "id": f"q_sales_{ticker}",
+                "title": "1. Understanding '2x Sales' Valuation",
+                "prompt": (
+                    f"{card['company']} generates **{fmt_money(card['annualized_revenue'])}** "
+                    "in annualized revenue. If the market values the company at **2x Sales**, "
+                    "what is its implied Market Capitalization?"
+                ),
+                "options": [
+                    f"{fmt_money(card['two_x_sales_val'])} — twice its annualized top-line revenue.",
+                    f"{fmt_money(card['cash_on_hand'])} — equal to its Cash on Hand.",
+                    "2% of its annual operating expenses.",
+                ],
+                "correct": (
+                    f"{fmt_money(card['two_x_sales_val'])} — twice its annualized top-line revenue."
+                ),
+                "explain": (
+                    "Price-to-Sales (P/S) = Market Cap ÷ Annual Revenue, so a 2x Sales "
+                    "multiple equals 2 × Annualized Revenue."
+                ),
+            },
+            {
+                "id": f"q_curr_{ticker}",
+                "title": "2. Current Ratio & Short-Term Balance Sheet Health",
+                "prompt": "In plain English, what does a Current Ratio below 1.0x indicate?",
+                "options": [
+                    "Short-term liabilities due within 12 months exceed current liquid assets, signaling potential working-capital strain.",
+                    "The company has zero debt and infinite cash runway.",
+                    "Annual sales growth exceeded 100% last quarter.",
+                ],
+                "correct": (
+                    "Short-term liabilities due within 12 months exceed current liquid assets, signaling potential working-capital strain."
+                ),
+                "explain": (
+                    "Current Ratio = Current Assets ÷ Current Liabilities. Ratios above 1.5x "
+                    "indicate a healthy short-term liquidity buffer."
+                ),
+            },
+            {
+                "id": f"q_growth_{ticker}",
+                "title": "3. Interpreting Top-Line Sales Growth",
+                "prompt": (
+                    "Why do analysts compare Year-over-Year (YoY) revenue rather than "
+                    "just looking at one quarter in isolation?"
+                ),
+                "options": [
+                    "Comparing the same quarter across consecutive years removes seasonal spikes (like holiday shopping) and reveals true growth momentum.",
+                    "SEC rules prohibit looking at quarterly revenue.",
+                    "YoY growth guarantees positive Free Cash Flow.",
+                ],
+                "correct": (
+                    "Comparing the same quarter across consecutive years removes seasonal spikes (like holiday shopping) and reveals true growth momentum."
+                ),
+                "explain": (
+                    "Seasonality distorts sequential quarter-over-quarter comparisons in retail, "
+                    "aerospace, and consumer sectors; YoY measures true underlying expansion."
+                ),
+            },
+        ]
+
+        for q in practice_bank:
+            with st.container(border=True):
+                st.markdown(f"#### {q['title']}")
+                st.write(safe_md(q["prompt"]))
+                choice = st.radio(
+                    "Choose an interpretation:",
+                    [safe_md(opt) for opt in q["options"]],
+                    key=f"radio_{q['id']}",
+                    label_visibility="collapsed",
+                )
+                if st.button("Check Interpretation", key=f"btn_{q['id']}"):
+                    if choice == safe_md(q["correct"]):
+                        st.success(safe_md(f"That's right — {q['explain']}"))
+                    else:
+                        st.info(safe_md(f"Review — {q['explain']}"))
+
+# ==============================================================================
+# 14. FOOTER & AD / PRIVACY DISCLOSURE
+# ==============================================================================
+st.markdown(
+    """
+    <div class="wl-footer">
+        <span><strong>BornYesterdayInvestEd.com</strong> • Live SEC EDGAR XBRL Miner + Interactive AI Coach</span>
+        <span>Educational tool & paper trading sandbox — not personalized investment advice. May display sponsored links or ads.</span>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
