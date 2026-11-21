@@ -159,9 +159,94 @@ st.markdown(
         color: var(--text-color);
     }
 
+    .wl-onboard-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 0.85rem;
+        margin-top: 0.95rem;
+    }
+    .wl-onboard-card {
+        background: rgba(15, 23, 42, 0.55);
+        border: 1px solid rgba(148, 163, 184, 0.24);
+        border-radius: 12px;
+        padding: 0.85rem 1rem;
+    }
+    .wl-step-pill {
+        display: inline-block;
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        padding: 0.16rem 0.55rem;
+        border-radius: 999px;
+        margin-bottom: 0.35rem;
+    }
+    .wl-step-1 { background: rgba(56, 189, 248, 0.2); color: #7dd3fc !important; }
+    .wl-step-2 { background: rgba(16, 185, 129, 0.2); color: #6ee7b7 !important; }
+    .wl-step-3 { background: rgba(167, 139, 250, 0.22); color: #ddd6fe !important; }
+    .wl-onboard-title {
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: #f8fafc !important;
+        margin-bottom: 0.2rem;
+    }
+    .wl-onboard-desc {
+        font-size: 0.81rem;
+        color: #cbd5e1 !important;
+        line-height: 1.45;
+        margin: 0;
+    }
+
+    .wl-start-banner {
+        background-color: var(--secondary-background-color);
+        border: 1px solid rgba(14, 165, 233, 0.32);
+        border-left: 5px solid #0284c7;
+        border-radius: 14px;
+        padding: 0.85rem 1.15rem;
+        margin: 0.4rem 0 0.75rem 0;
+    }
+    .wl-start-title {
+        font-size: 0.92rem;
+        font-weight: 700;
+        color: var(--text-color);
+        margin-bottom: 0.15rem;
+    }
+    .wl-start-sub {
+        font-size: 0.82rem;
+        color: var(--text-color);
+        opacity: 0.78;
+        margin: 0;
+    }
+
+    .wl-trust-section {
+        margin-top: 2.5rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid rgba(128, 128, 128, 0.22);
+    }
+    .wl-trust-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1rem;
+        margin-top: 0.75rem;
+    }
+    .wl-trust-card {
+        background-color: var(--secondary-background-color);
+        border: 1px solid rgba(128, 128, 128, 0.22);
+        border-radius: 14px;
+        padding: 1rem 1.15rem;
+        font-size: 0.85rem;
+        line-height: 1.55;
+        color: var(--text-color);
+    }
+    .wl-trust-card h4 {
+        margin: 0 0 0.4rem 0;
+        font-size: 0.94rem;
+        font-weight: 700;
+    }
+
     .wl-footer {
-        margin-top: 3rem;
-        padding-top: 1.25rem;
+        margin-top: 1.75rem;
+        padding-top: 1.1rem;
         border-top: 1px solid rgba(128, 128, 128, 0.22);
         font-size: 0.8rem;
         opacity: 0.78;
@@ -184,6 +269,8 @@ if "selected_term" not in st.session_state:
     st.session_state.selected_term = "Show All Terms (Textbook Guide)"
 if "chat_histories" not in st.session_state:
     st.session_state.chat_histories = {}
+if "queued_start_prompt" not in st.session_state:
+    st.session_state.queued_start_prompt = None
 
 if "paper_account" not in st.session_state:
     st.session_state.paper_account = {
@@ -725,6 +812,97 @@ def render_sales_growth_chart(card: dict):
     st.plotly_chart(fig, use_container_width=True)
 
 
+def render_mock_portfolio_growth_chart(
+    starting_balance: float,
+    monthly_contrib: float,
+    horizon_years: int,
+    custom_rate_pct: float,
+):
+    base_val = max(float(starting_balance), 100.0)
+    months = np.arange(0, horizon_years * 12 + 1)
+    years_axis = months / 12.0
+
+    def compound_series(annual_pct: float) -> list[float]:
+        r_m = (annual_pct / 100.0) / 12.0
+        vals = [base_val]
+        for _ in range(1, len(months)):
+            vals.append(vals[-1] * (1.0 + r_m) + monthly_contrib)
+        return vals
+
+    principal_vals = [base_val + monthly_contrib * m for m in months]
+    custom_vals = compound_series(custom_rate_pct)
+
+    scenarios = [
+        ("0% Cash Baseline (No Growth)", 0.0, "#94a3b8", "dashdot", 2),
+        ("5% Conservative / Dividend Pace", 5.0, "#64748b", "dash", 2.5),
+        ("8% Historical Index Average", 8.0, "#0284c7", "solid", 3),
+        (
+            f"{custom_rate_pct:.1f}% Your Target Growth Rate",
+            custom_rate_pct,
+            "#10b981",
+            "solid",
+            4,
+        ),
+        ("15% High-Conviction Compounder", 15.0, "#8b5cf6", "dot", 2.5),
+    ]
+
+    fig = go.Figure()
+    for label, rate, color, dash, width in scenarios:
+        y_vals = principal_vals if rate == 0.0 else compound_series(rate)
+        fig.add_trace(
+            go.Scatter(
+                x=years_axis,
+                y=y_vals,
+                mode="lines",
+                name=label,
+                line=dict(color=color, width=width, dash=dash),
+                hovertemplate="Year %{x:.1f}: $%{y:,.0f}<extra>" + label + "</extra>",
+            )
+        )
+
+    fig.update_layout(
+        title=(
+            f"Projected Portfolio Growth Over {horizon_years} Years "
+            f"(Starting Balance: {fmt_money(base_val)} + {fmt_money(monthly_contrib)}/mo)"
+        ),
+        xaxis_title="Investment Horizon (Years)",
+        yaxis_title="Projected Portfolio Value ($)",
+        hovermode="x unified",
+        height=390,
+        margin=dict(l=15, r=15, t=50, b=15),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+    yr5_idx = min(60, len(months) - 1)
+    yr10_idx = min(120, len(months) - 1)
+    end_idx = len(months) - 1
+
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric(
+        "Total Cash Put In",
+        fmt_money(principal_vals[end_idx]),
+        delta=f"Over {horizon_years} yrs",
+    )
+    m2.metric(
+        f"Year 5 Value ({custom_rate_pct:.0f}%)",
+        fmt_money(custom_vals[yr5_idx]),
+        delta=f"+{fmt_money(custom_vals[yr5_idx] - principal_vals[yr5_idx])} gain",
+    )
+    m3.metric(
+        f"Year 10 Value ({custom_rate_pct:.0f}%)",
+        fmt_money(custom_vals[yr10_idx]),
+        delta=f"+{fmt_money(custom_vals[yr10_idx] - principal_vals[yr10_idx])} gain",
+    )
+    m4.metric(
+        f"Year {horizon_years} Value ({custom_rate_pct:.0f}%)",
+        fmt_money(custom_vals[end_idx]),
+        delta=f"+{fmt_money(custom_vals[end_idx] - principal_vals[end_idx])} gain",
+    )
+
+
 # ==============================================================================
 # 7. SIDEBAR: NAVIGATION, MOCK ACCOUNT, MONETIZATION, TEXTBOOK & AI SETTINGS
 # ==============================================================================
@@ -937,6 +1115,7 @@ def load_sec_directory() -> list[str]:
         pass
     return featured
 
+
 def extract_cash(fin) -> tuple[float, str]:
     if fin is None:
         return 0.0, "Unavailable"
@@ -1114,7 +1293,7 @@ def build_plain_english_fallback(
         growth_note = f" ({growth:+.1f}% period sales growth)" if growth is not None else ""
         base = (
             f"**Plain English Breakdown ({card['ticker']}):**\n"
-            f"- What they bring in: is currently pacing at "
+            f"- **What they bring in:** {card['company']} is currently pacing at "
             f"**{rev_str}** in annualized revenue{growth_note}.\n"
             f"- **What '2x Sales' means:** If investors value the whole company at "
             f"**2x annual sales**, that puts its price tag at **{two_x_str}** — "
@@ -1126,7 +1305,7 @@ def build_plain_english_fallback(
         if runway is None:
             base = (
                 f"**Plain English Breakdown ({card['ticker']}):**\n"
-                f"- Low dilution pressure: generated **{cf_str}** "
+                f"- **Low dilution pressure:** {card['company']} generated **{cf_str}** "
                 f"in positive operating cash flow ({fcf_str} Free Cash Flow) and holds "
                 f"**{cash_str}** in cash.\n"
                 "- **What that means for you:** Because the core business brings in "
@@ -1136,7 +1315,7 @@ def build_plain_english_fallback(
             burn_str = fmt_money(abs(card["operating_cash_flow"]))
             base = (
                 f"**Plain English Breakdown ({card['ticker']}):**\n"
-                f"- The cash clock: has **{cash_str}** in the bank "
+                f"- **The cash clock:** {card['company']} has **{cash_str}** in the bank "
                 f"while burning roughly **{burn_str}** per period, leaving about "
                 f"**{runway} quarters** of runway.\n"
                 "- **Share dilution explained simply:** If cash runway drops under "
@@ -1325,14 +1504,56 @@ st.markdown(
 <div class="wl-hero">
 <div class="wl-hero-badge">Zero-Jargon Market Research & Practice Sandbox</div>
 <p class="wl-hero-sub">
-Start from square one and build real market literacy. Pick any public company below—mine its newest SEC EDGAR filings (10-Q, 10-K, 8-K, Form 4),
-chat live with an AI coach in <strong>Plain English</strong> (or connect concepts to any topic you already know),
-and test your ideas risk-free in your Mock Trading Account.
+Build real investing confidence from square one—without Wall Street jargon or risking a dime.
+Every company in the dropdown is pre-screened using live U.S. SEC filings so the strongest balance sheets appear first.
 </p>
+<div class="wl-onboard-grid">
+<div class="wl-onboard-card">
+<span class="wl-step-pill wl-step-1">Step 1 • Research</span>
+<div class="wl-onboard-title">🔍 Mine Real SEC Filings</div>
+<p class="wl-onboard-desc">Pick any public company to pull live 10-Q, 10-K, and Form 4 filings, cash runway, and debt ratios.</p>
+</div>
+<div class="wl-onboard-card">
+<span class="wl-step-pill wl-step-2">Step 2 • Learn</span>
+<div class="wl-onboard-title">💬 Ask the Plain-English Coach</div>
+<p class="wl-onboard-desc">Translate any number or ratio into everyday language—or connect concepts to a hobby you already know.</p>
+</div>
+<div class="wl-onboard-card">
+<span class="wl-step-pill wl-step-3">Step 3 • Practice</span>
+<div class="wl-onboard-title">📈 Paper Trade & Project Growth</div>
+<p class="wl-onboard-desc">Test your thesis with virtual cash in your Mock Account and visualize multi-year compounding curves.</p>
+</div>
+</div>
 </div>
 """,
     unsafe_allow_html=True,
 )
+
+with st.expander("🧭 New to Investing? Start Here (4-Step Guided Path)", expanded=True):
+    st.markdown(
+        '<div class="wl-start-banner">'
+        '<div class="wl-start-title">Not sure where to click first? Follow this beginner loop:</div>'
+        '<p class="wl-start-sub">Pick a company below (the highest-scoring SEC balance sheets load first), then jump straight to any step:</p>'
+        "</div>",
+        unsafe_allow_html=True,
+    )
+    sh1, sh2, sh3, sh4 = st.columns(4)
+    if sh1.button("1. Run AI Health Check", use_container_width=True):
+        st.session_state.active_page = "Research & Paper Trading Studio"
+        st.session_state.queued_start_prompt = (
+            "Give me a beginner-friendly plain-English health check on this company's cash, sales, and debt."
+        )
+        st.rerun()
+    if sh2.button("2. Read '2x Sales' & Ratios", use_container_width=True):
+        go_to_definitions("Price-to-Sales Ratio ('2x Sales')")
+        st.rerun()
+    if sh3.button("3. Open Mock Account", use_container_width=True):
+        st.session_state.active_page = "Mock Trading Account"
+        st.rerun()
+    if sh4.button("4. View Growth Simulator", use_container_width=True):
+        go_to_definitions("Dynamic Wealth Glide-Path")
+        st.rerun()
+
 render_ad_slot(
     "Top Leaderboard",
     "728×90",
@@ -1359,7 +1580,7 @@ with col_in2:
     st.write("")
     if st.button(
         "Refresh SEC Data",
-        help="Clear cache and pull newest SEC filings & quotes",
+        help="Clear cache, re-rank Green-tier leaders, and pull newest SEC filings & quotes",
         use_container_width=True,
     ):
         build_health_card.clear()
@@ -1592,6 +1813,40 @@ elif page == "Mock Trading Account":
         k3.metric("Invested in Stocks", fmt_money(invested_value))
         k4.metric("Total Gain / Loss", fmt_money(total_pnl))
 
+        st.write("")
+        with st.container(border=True):
+            st.markdown("#### Multi-Year Investment Growth Projection")
+            st.caption(
+                f"See what your current **{fmt_money(total_equity)}** portfolio could grow into "
+                "over time across different annual return rates—compared against leaving cash idle at 0%."
+            )
+            gc1, gc2, gc3 = st.columns(3)
+            proj_years = gc1.slider(
+                "Projection Horizon (Years)", 5, 30, 15, step=1, key="mock_proj_yrs"
+            )
+            proj_monthly = gc2.slider(
+                "Monthly Virtual Contribution ($)",
+                0,
+                2000,
+                250,
+                step=50,
+                key="mock_proj_mo",
+            )
+            proj_target_rate = gc3.slider(
+                "Target Annual Return (%)",
+                1.0,
+                30.0,
+                10.0,
+                step=0.5,
+                key="mock_proj_rate",
+            )
+            render_mock_portfolio_growth_chart(
+                starting_balance=total_equity,
+                monthly_contrib=float(proj_monthly),
+                horizon_years=int(proj_years),
+                custom_rate_pct=float(proj_target_rate),
+            )
+
         st.divider()
         trade_col, port_col = st.columns([1.05, 1.45], gap="large")
 
@@ -1808,17 +2063,17 @@ else:
 
             if ticker not in st.session_state.chat_histories:
                 runway_intro = (
-                    f"generates **{fmt_money(card['operating_cash_flow'])} in positive "
+                    f"generates **{fmt_money(card['operating_cash_flow'])}** in positive "
                     "operating cash flow"
                     if card["runway_quarters"] is None
-                    else f"has roughly  quarters of cash runway"
+                    else f"has roughly **{card['runway_quarters']} quarters** of cash runway"
                 )
                 st.session_state.chat_histories[ticker] = [
                     {
                         "role": "assistant",
                         "content": (
-                            f"I've pulled 's ({card['ticker']}) latest "
-                            f"** SEC filing (period `{card['period']}`). "
+                            f"I've pulled **{card['company']}'s ({card['ticker']})** latest "
+                            f"**{card['filing_cadence']}** SEC filing (period `{card['period']}`). "
                             f"In plain English: they hold **{fmt_money(card['cash_on_hand'])}** "
                             f"in cash, pace at **{fmt_money(card['annualized_revenue'])}** in "
                             f"yearly sales, and {runway_intro}.\n\n"
@@ -1860,10 +2115,14 @@ else:
                         st.markdown(safe_md(msg["content"]))
 
             topic_hint = connect_topic.strip() or "plain English"
+            start_here_q = st.session_state.get("queued_start_prompt")
+            if start_here_q:
+                st.session_state.queued_start_prompt = None
+
             typed_prompt = st.chat_input(
                 f"Ask anything about {card['ticker']}, SEC terms, or {topic_hint}..."
             )
-            active_prompt = queued_prompt or typed_prompt
+            active_prompt = start_here_q or queued_prompt or typed_prompt
 
             if active_prompt:
                 history.append({"role": "user", "content": active_prompt})
@@ -1936,7 +2195,7 @@ else:
                     selected_vid = yt_videos[chosen_idx]
                     st.video(selected_vid["url"])
                     st.caption(
-                        f"Source: **{selected_vid['channel']} • "
+                        f"Source: **{selected_vid['channel']}** • "
                         f"[Open on YouTube]({selected_vid['url']})"
                     )
                 else:
@@ -1953,8 +2212,8 @@ else:
                 expanded=True,
             ):
                 st.caption(
-                    f"Recent Form 4 Insider Filings:  "
-                    f"(Latest: **)"
+                    f"Recent Form 4 Insider Filings: **{card['insider_filings_count']}** "
+                    f"(Latest: **{card['latest_insider_date']}**)"
                 )
                 if card["recent_filings"]:
                     df_filings = pd.DataFrame(card["recent_filings"])
@@ -2258,14 +2517,64 @@ else:
                         st.info(safe_md(f"Review — {q['explain']}"))
 
 # ==============================================================================
-# 14. FOOTER & AD / PRIVACY DISCLOSURE
+# 14. TRUST, METHODOLOGY, DATA SOURCES, SAMPLE USE CASES & DISCLAIMER
 # ==============================================================================
 st.markdown(
     """
-    <div class="wl-footer">
-        <span><strong>BornYesterdayInvestEd.com</strong> • Live SEC EDGAR XBRL Miner + Interactive AI Coach</span>
-        <span>Educational tool & paper trading sandbox — not personalized investment advice. May display sponsored links or ads.</span>
-    </div>
-    """,
+<div class="wl-trust-section">
+<h3 style="margin-bottom:0.2rem;">Methodology, Data Sources & Platform Transparency</h3>
+<p style="font-size:0.86rem; opacity:0.78; margin-top:0;">
+Built for first-time investors who want verifiable primary-source data instead of market noise.
+</p>
+<div class="wl-trust-grid">
+<div class="wl-trust-card">
+<h4>👤 About the Creator</h4>
+<p style="margin:0;">
+BornYesterdayInvestEd.com was created by an independent developer and self-taught market researcher who wanted a calm,
+jargon-free workspace to read real company filings, test ideas safely, and learn financial literacy through plain English and everyday analogies.
+</p>
+</div>
+<div class="wl-trust-card">
+<h4>⚙️ SEC Tier & Ranking Methodology</h4>
+<p style="margin:0;">
+Every featured company is scored (0–100) from its latest SEC filings: <strong>Fortress Liquidity</strong> requires positive Operating Cash Flow and Debt-to-Equity &le; 1.5x;
+<strong>Steady Runway</strong> requires 8+ quarters of cash reserves; <strong>Speculative Cash Burn</strong> flags under 8 quarters of runway, with bonus points for Current Ratio &ge; 1.5x, positive Free Cash Flow, and revenue growth.
+</p>
+</div>
+<div class="wl-trust-card">
+<h4>🏛️ Official Data Sources</h4>
+<p style="margin:0;">
+Balance-sheet, cash-flow, and insider metrics are mined directly from official <strong>U.S. SEC EDGAR XBRL</strong> filings (10-Q, 10-K, 8-K, Form 4).
+Market quotes pull from public exchange feeds, and AI Coach answers are strictly grounded in each company's verified filing figures.
+</p>
+</div>
+<div class="wl-trust-card">
+<h4>💡 Sample Beginner Use Cases</h4>
+<ul style="margin:0; padding-left:1.1rem;">
+<li><strong>Dilution Check:</strong> Verify if an early-stage tech or space company has 8+ quarters of cash before paper trading.</li>
+<li><strong>Valuation Sanity Check:</strong> See what "2x Sales" means in real dollars before buying shares.</li>
+<li><strong>Compounding Practice:</strong> Model 5–30 year portfolio growth in the Mock Trading Account.</li>
+</ul>
+</div>
+</div>
+</div>
+""",
+    unsafe_allow_html=True,
+)
+
+st.info(
+    "**Educational & Paper-Trading Disclaimer:** BornYesterdayInvestEd.com is an educational "
+    "research tool and virtual simulation sandbox. Nothing on this site constitutes personalized "
+    "financial, tax, or investment advice, nor a recommendation to buy or sell any security. "
+    "Always consult a licensed financial advisor and verify official SEC filings before investing real capital."
+)
+
+st.markdown(
+    """
+<div class="wl-footer">
+<span><strong>BornYesterdayInvestEd.com</strong> • Live SEC EDGAR XBRL Miner + Interactive AI Coach</span>
+<span>Educational tool & paper trading sandbox — not personalized investment advice. May display sponsored links or ads.</span>
+</div>
+""",
     unsafe_allow_html=True,
 )
