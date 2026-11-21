@@ -853,20 +853,64 @@ render_ad_slot(
 # ==============================================================================
 # 8. SEC EDGAR LIVE DATA MINER (FINANCIALS, LATEST FILINGS & INSIDER TRADES)
 # ==============================================================================
-@st.cache_data(ttl=86400)
+def score_tier_health(card: dict) -> int:
+    """Score a company from 0-100 using the app's own SEC Balance-Sheet Tier system."""
+    tier = card.get("stress_tier", "Speculative Cash Burn")
+    if tier == "Fortress Liquidity":
+        score = 70
+    elif tier == "Steady Runway":
+        score = 40
+    else:
+        score = 10
+
+    curr_ratio = card.get("current_ratio")
+    if curr_ratio is not None and curr_ratio >= 1.5:
+        score += 10
+    fcf = card.get("free_cash_flow")
+    if fcf is not None and fcf > 0:
+        score += 10
+    growth = card.get("sales_growth_pct")
+    if growth is not None and growth > 0:
+        score += 10
+
+    return score
+
+
+@st.cache_data(ttl=86400, show_spinner=False)
+def rank_featured_watchlist(candidates: tuple[tuple[str, str], ...]) -> list[str]:
+    """Evaluate featured candidates via live SEC EDGAR filings and sort strongest first."""
+    import time
+
+    ranked = []
+    for sym, fallback_name in candidates:
+        try:
+            card = build_health_card(sym)
+            score = score_tier_health(card)
+            co_name = card.get("company") or fallback_name
+            ranked.append((score, f"{sym} — {co_name}"))
+            time.sleep(0.15)  # Respect SEC EDGAR 10 req/sec fair-access limit
+        except Exception:
+            ranked.append((0, f"{sym} — {fallback_name}"))
+
+    ranked.sort(key=lambda item: item[0], reverse=True)
+    return [label for _, label in ranked]
+
+
+@st.cache_data(ttl=86400, show_spinner=False)
 def load_sec_directory() -> list[str]:
-    featured = [
-        "LUNR — Intuitive Machines, Inc.",
-        "NVDA — NVIDIA CORP",
-        "RKLB — Rocket Lab USA, Inc.",
-        "SMR — NuScale Power Corp",
-        "PLTR — Palantir Technologies Inc.",
-        "AAPL — Apple Inc.",
-        "TSLA — Tesla, Inc.",
-        "MSFT — MICROSOFT CORP",
-        "AMZN — AMAZON COM INC",
-        "ASTS — AST SpaceMobile, Inc.",
-    ]
+    watchlist_candidates = (
+        ("NVDA", "NVIDIA CORP"),
+        ("MSFT", "MICROSOFT CORP"),
+        ("AAPL", "Apple Inc."),
+        ("PLTR", "Palantir Technologies Inc."),
+        ("FSLR", "First Solar, Inc."),
+        ("ENPH", "Enphase Energy, Inc."),
+        ("NEE", "NextEra Energy, Inc."),
+        ("RKLB", "Rocket Lab USA, Inc."),
+        ("LUNR", "Intuitive Machines, Inc."),
+        ("SMR", "NuScale Power Corp"),
+    )
+    featured = rank_featured_watchlist(watchlist_candidates)
     try:
         from edgar.reference.tickers import get_cik_tickers
 
@@ -892,7 +936,6 @@ def load_sec_directory() -> list[str]:
     except Exception:
         pass
     return featured
-
 
 def extract_cash(fin) -> tuple[float, str]:
     if fin is None:
@@ -1320,6 +1363,8 @@ with col_in2:
         use_container_width=True,
     ):
         build_health_card.clear()
+        rank_featured_watchlist.clear()
+        load_sec_directory.clear()
         fetch_stock_youtube_videos.clear()
         fetch_market_price.clear()
         st.rerun()
