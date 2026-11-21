@@ -1,0 +1,6 @@
+streamlit
+edgartools
+plotly
+google-genai
+pandas
+numpy
