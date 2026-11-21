@@ -1250,47 +1250,46 @@ if LOGO_PATH:
         'alt="BornYesterdayInvestEd" class="wl-masthead-logo" />'
     )
 else:
-    brand_mark_html = """
-    <svg class="wl-masthead-logo" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-        <rect width="120" height="120" rx="24" fill="#0f172a"/>
-        <polyline points="14,98 44,72 56,80 82,50 92,56 106,24" fill="none" stroke="#22c55e" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/>
-        <polygon points="106,18 94,26 109,33" fill="#22c55e"/>
-        <circle cx="28" cy="74" r="7" fill="#ffffff"/>
-        <line x1="28" y1="81" x2="28" y2="94" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>
-        <line x1="28" y1="94" x2="22" y2="104" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>
-        <line x1="28" y1="94" x2="35" y2="104" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>
-        <circle cx="56" cy="52" r="8" fill="#ffffff"/>
-        <line x1="56" y1="60" x2="56" y2="80" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round"/>
-        <line x1="56" y1="80" x2="47" y2="104" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round"/>
-        <line x1="56" y1="80" x2="66" y2="104" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round"/>
-        <circle cx="88" cy="30" r="10" fill="#ffffff"/>
-        <line x1="88" y1="40" x2="88" y2="70" stroke="#ffffff" stroke-width="5" stroke-linecap="round"/>
-        <line x1="88" y1="70" x2="75" y2="104" stroke="#ffffff" stroke-width="5" stroke-linecap="round"/>
-        <line x1="88" y1="70" x2="102" y2="104" stroke="#ffffff" stroke-width="5" stroke-linecap="round"/>
-    </svg>
-    """
+    brand_mark_html = (
+        '<svg class="wl-masthead-logo" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">'
+        '<rect width="120" height="120" rx="24" fill="#0f172a"/>'
+        '<polyline points="14,98 44,72 56,80 82,50 92,56 106,24" fill="none" stroke="#22c55e" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/>'
+        '<polygon points="106,18 94,26 109,33" fill="#22c55e"/>'
+        '<circle cx="28" cy="74" r="7" fill="#ffffff"/>'
+        '<line x1="28" y1="81" x2="28" y2="94" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>'
+        '<line x1="28" y1="94" x2="22" y2="104" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>'
+        '<line x1="28" y1="94" x2="35" y2="104" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>'
+        '<circle cx="56" cy="52" r="8" fill="#ffffff"/>'
+        '<line x1="56" y1="60" x2="56" y2="80" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round"/>'
+        '<line x1="56" y1="80" x2="47" y2="104" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round"/>'
+        '<line x1="56" y1="80" x2="66" y2="104" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round"/>'
+        '<circle cx="88" cy="30" r="10" fill="#ffffff"/>'
+        '<line x1="88" y1="40" x2="88" y2="70" stroke="#ffffff" stroke-width="5" stroke-linecap="round"/>'
+        '<line x1="88" y1="70" x2="75" y2="104" stroke="#ffffff" stroke-width="5" stroke-linecap="round"/>'
+        '<line x1="88" y1="70" x2="102" y2="104" stroke="#ffffff" stroke-width="5" stroke-linecap="round"/>'
+        "</svg>"
+    )
 
 st.markdown(
     f"""
-    <div class="wl-masthead">
-        {brand_mark_html}
-        <div>
-            <div class="wl-masthead-name">BornYesterdayInvestEd.com</div>
-            <div class="wl-masthead-tagline">SEC EDGAR Filing Miner • Plain-English AI Coach • Textbook Charts • Paper Trading</div>
-        </div>
-    </div>
-    <div class="wl-hero">
-        <div class="wl-hero-badge">Zero-Jargon Market Research & Practice Sandbox</div>
-        <p class="wl-hero-sub">
-            Start from square one and build real market literacy. Pick any public company below—mine its newest SEC EDGAR filings (10-Q, 10-K, 8-K, Form 4),
-            chat live with an AI coach in <strong>Plain English</strong> (or connect concepts to any topic you already know),
-            and test your ideas risk-free in your Mock Trading Account.
-        </p>
-    </div>
-    """,
+<div class="wl-masthead">
+{brand_mark_html}
+<div>
+<div class="wl-masthead-name">BornYesterdayInvestEd.com</div>
+<div class="wl-masthead-tagline">SEC EDGAR Filing Miner • Plain-English AI Coach • Textbook Charts • Paper Trading</div>
+</div>
+</div>
+<div class="wl-hero">
+<div class="wl-hero-badge">Zero-Jargon Market Research & Practice Sandbox</div>
+<p class="wl-hero-sub">
+Start from square one and build real market literacy. Pick any public company below—mine its newest SEC EDGAR filings (10-Q, 10-K, 8-K, Form 4),
+chat live with an AI coach in <strong>Plain English</strong> (or connect concepts to any topic you already know),
+and test your ideas risk-free in your Mock Trading Account.
+</p>
+</div>
+""",
     unsafe_allow_html=True,
 )
-
 render_ad_slot(
     "Top Leaderboard",
     "728×90",
