@@ -2,7 +2,6 @@ import base64
 import json
 import os
 import re
-import time
 import urllib.request
 from datetime import datetime
 from urllib.parse import quote_plus
@@ -24,14 +23,14 @@ def find_logo_file() -> str | None:
 LOGO_PATH = find_logo_file()
 
 st.set_page_config(
-    page_title="BornYesterdayInvestEd.com — SEC Research, Live AI Coach & Paper Trading",
+    page_title="BornYesterdayInvestEd.com — SEC Research, AI Coach & Paper Trading",
     page_icon=LOGO_PATH or "📈",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
 # ==============================================================================
-# 1. THEME-ADAPTIVE FRIENDLY FINTECH DESIGN SYSTEM (LIGHT & DARK MODE READY)
+# 1. THEME-ADAPTIVE FINTECH DESIGN SYSTEM (LIGHT & DARK MODE READY)
 # ==============================================================================
 st.markdown(
     """
@@ -185,8 +184,6 @@ if "selected_term" not in st.session_state:
     st.session_state.selected_term = "Show All Terms (Textbook Guide)"
 if "chat_histories" not in st.session_state:
     st.session_state.chat_histories = {}
-if "connect_topic_input" not in st.session_state:
-    st.session_state.connect_topic_input = ""
 
 if "paper_account" not in st.session_state:
     st.session_state.paper_account = {
@@ -220,7 +217,9 @@ def safe_md(text: str) -> str:
     return text.replace("$", "\\$")
 
 
-def searchable_selectbox(label: str, options: list[str], index: int = 0, placeholder: str = "") -> str:
+def searchable_selectbox(
+    label: str, options: list[str], index: int = 0, placeholder: str = ""
+) -> str:
     try:
         return st.selectbox(
             label,
@@ -236,7 +235,11 @@ def searchable_selectbox(label: str, options: list[str], index: int = 0, placeho
 @st.cache_data(ttl=900)
 def fetch_market_price(ticker: str) -> tuple[float | None, str]:
     try:
-        url = f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker.upper()}?interval=1d&range=5d"
+        t_up = ticker.upper()
+        url = (
+            f"https://query1.finance.yahoo.com/v8/finance/chart/{t_up}"
+            "?interval=1d&range=5d"
+        )
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
         with urllib.request.urlopen(req, timeout=4) as resp:
             payload = json.loads(resp.read().decode("utf-8"))
@@ -253,7 +256,9 @@ def fetch_market_price(ticker: str) -> tuple[float | None, str]:
 # 3. AUTOMATIC YOUTUBE STOCK VIDEO FINDER (ZERO API KEY NEEDED + API OPTION)
 # ==============================================================================
 @st.cache_data(ttl=3600)
-def fetch_stock_youtube_videos(ticker: str, company_name: str, yt_api_key: str = "") -> list[dict]:
+def fetch_stock_youtube_videos(
+    ticker: str, company_name: str, yt_api_key: str = ""
+) -> list[dict]:
     clean_co = re.sub(
         r"\b(Inc|Corp|Corporation|Ltd|PLC|Holdings|Group|Co)\b\.?",
         "",
@@ -276,23 +281,27 @@ def fetch_stock_youtube_videos(ticker: str, company_name: str, yt_api_key: str =
                 for item in data.get("items", []):
                     vid = item["id"]["videoId"]
                     snip = item["snippet"]
-                    videos.append({
-                        "video_id": vid,
-                        "url": f"https://www.youtube.com/watch?v={vid}",
-                        "title": snip.get("title", f"{ticker} Stock Analysis"),
-                        "channel": snip.get("channelTitle", "YouTube"),
-                    })
+                    videos.append(
+                        {
+                            "video_id": vid,
+                            "url": f"https://www.youtube.com/watch?v={vid}",
+                            "title": snip.get("title", f"{ticker} Stock Analysis"),
+                            "channel": snip.get("channelTitle", "YouTube"),
+                        }
+                    )
                 if videos:
                     return videos
         except Exception:
             pass
 
     try:
-        search_url = f"https://www.youtube.com/results?search_query={quote_plus(query)}"
+        search_url = (
+            f"https://www.youtube.com/results?search_query={quote_plus(query)}"
+        )
         req = urllib.request.Request(
             search_url,
             headers={
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                "User-Agent": "Mozilla/5.0",
                 "Accept-Language": "en-US,en;q=0.9",
             },
         )
@@ -309,17 +318,24 @@ def fetch_stock_youtube_videos(ticker: str, company_name: str, yt_api_key: str =
 
         for vid in unique_ids:
             watch_url = f"https://www.youtube.com/watch?v={vid}"
-            oembed_url = f"https://www.youtube.com/oembed?url={quote_plus(watch_url)}&format=json"
+            oembed_url = (
+                "https://www.youtube.com/oembed"
+                f"?url={quote_plus(watch_url)}&format=json"
+            )
             try:
-                oreq = urllib.request.Request(oembed_url, headers={"User-Agent": "Mozilla/5.0"})
+                oreq = urllib.request.Request(
+                    oembed_url, headers={"User-Agent": "Mozilla/5.0"}
+                )
                 with urllib.request.urlopen(oreq, timeout=4) as oresp:
                     meta = json.loads(oresp.read().decode("utf-8"))
-                    videos.append({
-                        "video_id": vid,
-                        "url": watch_url,
-                        "title": meta.get("title", f"{ticker} Market Analysis"),
-                        "channel": meta.get("author_name", "YouTube Creator"),
-                    })
+                    videos.append(
+                        {
+                            "video_id": vid,
+                            "url": watch_url,
+                            "title": meta.get("title", f"{ticker} Market Analysis"),
+                            "channel": meta.get("author_name", "YouTube Creator"),
+                        }
+                    )
                 if len(videos) >= 3:
                     break
             except Exception:
@@ -353,11 +369,13 @@ def render_ad_slot(
         height_px = 100 if "728" in dimensions else 260
         ad_html = (
             '<div style="text-align:center; overflow:hidden;">'
-            f'<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={pub}" crossorigin="anonymous"></script>'
+            '<script async src="https://pagead2.googlesyndication.com/pagead/js/'
+            f'adsbygoogle.js?client={pub}" crossorigin="anonymous"></script>'
             '<ins class="adsbygoogle" style="display:block" '
-            f'data-ad-client="{pub}" data-ad-slot="{slot}" data-ad-format="auto" data-full-width-responsive="true"></ins>'
-            '<script>(adsbygoogle = window.adsbygoogle || []).push({});</script>'
-            '</div>'
+            f'data-ad-client="{pub}" data-ad-slot="{slot}" '
+            'data-ad-format="auto" data-full-width-responsive="true"></ins>'
+            "<script>(adsbygoogle = window.adsbygoogle || []).push({});</script>"
+            "</div>"
         )
         components.html(ad_html, height=height_px)
         return
@@ -366,8 +384,10 @@ def render_ad_slot(
         st.markdown(
             f'<div class="ad-slot-wrapper">'
             f'<div class="ad-label">Sponsored Partner • {slot_name}</div>'
-            f'<div class="ad-copy"><a href="{sponsor_url.strip()}" target="_blank" rel="noopener noreferrer" style="font-weight:600; text-decoration:none;">'
-            f'{sponsor_title.strip()} →</a></div></div>',
+            f'<div class="ad-copy"><a href="{sponsor_url.strip()}" '
+            'target="_blank" rel="noopener noreferrer" '
+            'style="font-weight:600; text-decoration:none;">'
+            f"{sponsor_title.strip()} →</a></div></div>",
             unsafe_allow_html=True,
         )
         return
@@ -375,9 +395,10 @@ def render_ad_slot(
     if preview_empty:
         st.markdown(
             f'<div class="ad-slot-wrapper">'
-            f'<div class="ad-label">Ad Revenue Slot Preview • {slot_name} ({dimensions})</div>'
-            f'<div class="ad-copy">Paste your <code>ca-pub-...</code> Google AdSense ID or Sponsor Link in the sidebar to serve live ads here.</div>'
-            f'</div>',
+            f'<div class="ad-label">Ad Slot Preview • {slot_name} ({dimensions})</div>'
+            f'<div class="ad-copy">Paste your <code>ca-pub-...</code> Google AdSense ID '
+            "or Sponsor Link in the sidebar to serve live ads here.</div>"
+            f"</div>",
             unsafe_allow_html=True,
         )
 
@@ -390,124 +411,185 @@ DEFINITIONS_DB = {
         "category": "Valuation Multiples",
         "range": "Valuation Metric",
         "textbook": (
-            "A valuation multiple that compares a company's total market value (Market Capitalization) "
-            "to its trailing twelve-month top-line revenue. Saying a stock trades at '2x sales' means "
-            "investors are paying $2 for every $1 of annual revenue the business generates."
+            "A valuation multiple that compares a company's total market value "
+            "(Market Capitalization) to its trailing twelve-month top-line revenue. "
+            "Saying a stock trades at '2x sales' means investors are paying $2 for "
+            "every $1 of annual revenue the business generates."
         ),
         "formula": "Price-to-Sales (P/S) = Market Capitalization ÷ Annual Revenue",
         "benchmarks": (
-            "Under 1.5x is typical for lower-margin retail or manufacturing; 2x–4x is common for "
-            "steady industrial/tech businesses; 6x–15x+ is usually reserved for high-margin, rapidly growing software companies."
+            "Under 1.5x is typical for lower-margin retail or manufacturing; 2x–4x is "
+            "common for steady industrial/tech businesses; 6x–15x+ is usually reserved "
+            "for high-margin, rapidly growing software companies."
         ),
         "why_it_matters": (
-            "Useful for valuing young or fast-growing companies that reinvest heavily and do not yet report "
-            "positive net earnings—though high sales multiples carry steep downside if revenue growth slows."
+            "Useful for valuing young or fast-growing companies that reinvest heavily "
+            "and do not yet report positive net earnings—though high sales multiples "
+            "carry steep downside if revenue growth slows."
         ),
     },
     "Sales Growth (YoY & QoQ Revenue Growth)": {
         "category": "Top-Line Momentum",
         "range": "Growth Metric",
         "textbook": (
-            "The percentage rate at which a company's gross top-line revenue increases from one reporting "
-            "period to the comparable prior period (Year-over-Year compares Q3 this year to Q3 last year to remove seasonal distortion)."
+            "The percentage rate at which a company's gross top-line revenue increases "
+            "from one reporting period to the comparable prior period (Year-over-Year "
+            "compares Q3 this year to Q3 last year to remove seasonal distortion)."
         ),
-        "formula": "Sales Growth (%) = [(Current Revenue − Prior Revenue) ÷ |Prior Revenue|] × 100",
+        "formula": "Sales Growth (%) = [(Current Rev − Prior Rev) ÷ |Prior Rev|] × 100",
         "benchmarks": (
-            "0%–5% signals mature/GDP-level expansion; 10%–20% reflects healthy compound growth; "
-            "25%+ signals hyper-growth—provided gross margins and cash flow scale alongside it."
+            "0%–5% signals mature/GDP-level expansion; 10%–20% reflects healthy "
+            "compound growth; 25%+ signals hyper-growth—provided gross margins and "
+            "cash flow scale alongside it."
         ),
         "why_it_matters": (
-            "Consistent sales growth proves customer demand is expanding, which is the primary "
-            "justification for higher valuation multiples like 4x–8x sales."
+            "Consistent sales growth proves customer demand is expanding, which is "
+            "the primary justification for higher valuation multiples like 4x–8x sales."
         ),
     },
     "Current Ratio (Short-Term Liquidity)": {
         "category": "Balance Sheet Health",
         "range": "Liquidity Ratio",
         "textbook": (
-            "A balance-sheet liquidity ratio measuring a company's ability to pay off all short-term obligations "
-            "due within 12 months (Current Liabilities) using assets that can be converted to cash within 12 months (Current Assets)."
+            "A balance-sheet liquidity ratio measuring a company's ability to pay off "
+            "all short-term obligations due within 12 months (Current Liabilities) "
+            "using assets convertible to cash within 12 months (Current Assets)."
         ),
         "formula": "Current Ratio = Total Current Assets ÷ Total Current Liabilities",
         "benchmarks": (
-            "1.5x–3.0x indicates comfortable short-term liquidity; below 1.0x warns that near-term bills "
-            "exceed liquid assets; above 4.0x may suggest idle cash not being reinvested efficiently."
+            "1.5x–3.0x indicates comfortable short-term liquidity; below 1.0x warns "
+            "that near-term bills exceed liquid assets; above 4.0x may suggest idle "
+            "cash not being reinvested efficiently."
         ),
-        "why_it_matters": "Acts as an early-warning indicator of working-capital stress before a company misses supplier or debt payments.",
+        "why_it_matters": (
+            "Acts as an early-warning indicator of working-capital stress before a "
+            "company misses supplier or debt payments."
+        ),
     },
     "Cash on Hand & Net Liquidity": {
         "category": "Balance Sheet Health",
         "range": "Balance Sheet",
         "textbook": (
-            "The most liquid line item on the Consolidated Balance Sheet, representing unrestricted currency, "
-            "bank deposits, and highly liquid money-market instruments maturing within 90 days."
+            "The most liquid line item on the Consolidated Balance Sheet, representing "
+            "unrestricted currency, bank deposits, and highly liquid money-market "
+            "instruments maturing within 90 days."
         ),
         "formula": "Net Cash = Cash & Short-Term Investments − Total Debt",
-        "benchmarks": "Companies with positive Net Cash (more cash than total debt) can weather recessions without distress.",
-        "why_it_matters": "Cash pays payroll and R&D—companies can report accounting profits while still running out of real cash.",
+        "benchmarks": (
+            "Companies with positive Net Cash (more cash than total debt) can weather "
+            "recessions without distress."
+        ),
+        "why_it_matters": (
+            "Cash pays payroll and R&D—companies can report accounting profits while "
+            "still running out of real cash."
+        ),
     },
     "Operating Cash Flow (OCF)": {
         "category": "Balance Sheet Health",
         "range": "Cash Flow Statement",
         "textbook": (
-            "Net cash generated or consumed by a company's core ongoing business operations, adjusting GAAP Net Income "
-            "for non-cash charges (such as depreciation and stock-based compensation) and changes in working capital."
+            "Net cash generated or consumed by a company's core ongoing operations, "
+            "adjusting GAAP Net Income for non-cash charges (depreciation, stock-based "
+            "compensation) and changes in working capital."
         ),
         "formula": "OCF = Net Income + Non-Cash Expenses ± Changes in Working Capital",
-        "benchmarks": "Consistently positive OCF confirms the core business model is self-sustaining; persistent negative OCF requires external cash reserves.",
-        "why_it_matters": "Harder to manipulate than accounting earnings because it tracks actual bank-account cash inflows and outflows.",
+        "benchmarks": (
+            "Consistently positive OCF confirms the core business model is "
+            "self-sustaining; persistent negative OCF requires external cash reserves."
+        ),
+        "why_it_matters": (
+            "Harder to manipulate than accounting earnings because it tracks actual "
+            "bank-account cash inflows and outflows."
+        ),
     },
     "Free Cash Flow (FCF)": {
         "category": "Balance Sheet Health",
         "range": "Cash Flow Statement",
         "textbook": (
-            "The discretionary cash generated by operations after funding all Capital Expenditures (CapEx) "
-            "required to maintain and expand property, plant, equipment, and infrastructure."
+            "The discretionary cash generated by operations after funding all Capital "
+            "Expenditures (CapEx) required to maintain and expand property, plant, "
+            "equipment, and infrastructure."
         ),
-        "formula": "Free Cash Flow (FCF) = Operating Cash Flow − Capital Expenditures (CapEx)",
-        "benchmarks": "An FCF Margin (FCF ÷ Revenue) above 15% signals an elite cash-compounding business.",
-        "why_it_matters": "FCF is the true surplus available to retire debt, buy back shares, pay dividends, or fund acquisitions without dilution.",
+        "formula": "Free Cash Flow (FCF) = Operating Cash Flow − Capital Expenditures",
+        "benchmarks": (
+            "An FCF Margin (FCF ÷ Revenue) above 15% signals an elite "
+            "cash-compounding business."
+        ),
+        "why_it_matters": (
+            "FCF is the true surplus available to retire debt, buy back shares, pay "
+            "dividends, or fund acquisitions without dilution."
+        ),
     },
     "Cash Runway & Share Dilution Risk": {
         "category": "Balance Sheet Health",
         "range": "Liquidity Horizon",
         "textbook": (
-            "The estimated number of quarters a cash-burning enterprise can sustain operations at its current "
-            "quarterly operating cash outflow before depleting cash reserves."
+            "The estimated number of quarters a cash-burning enterprise can sustain "
+            "operations at its current quarterly operating cash outflow before "
+            "depleting cash reserves."
         ),
-        "formula": "Cash Runway (Quarters) = Cash on Hand ÷ Quarterly Operating Cash Burn",
-        "benchmarks": "8+ quarters (2+ years) provides strategic breathing room; under 8 quarters places a company on 'Dilution Watch' for secondary equity offerings.",
-        "why_it_matters": "When runway drops below 4–6 quarters, management frequently issues new shares at a discount, diluting existing shareholders' ownership percentage.",
+        "formula": "Cash Runway (Quarters) = Cash on Hand ÷ Quarterly Cash Burn",
+        "benchmarks": (
+            "8+ quarters (2+ years) provides strategic breathing room; under 8 "
+            "quarters places a company on 'Dilution Watch' for equity offerings."
+        ),
+        "why_it_matters": (
+            "When runway drops below 4–6 quarters, management frequently issues new "
+            "shares at a discount, diluting existing shareholders' ownership percentage."
+        ),
     },
     "Debt-to-Equity Ratio": {
         "category": "Balance Sheet Health",
         "range": "Solvency & Leverage",
         "textbook": (
-            "A solvency ratio comparing a company's total financial liabilities to its total shareholders' equity, "
-            "quantifying the degree to which operations are funded through debt versus owner capital."
+            "A solvency ratio comparing a company's total financial liabilities to "
+            "its total shareholders' equity, quantifying how much operations rely on "
+            "debt versus owner capital."
         ),
         "formula": "Debt-to-Equity = Total Liabilities ÷ Total Stockholders' Equity",
-        "benchmarks": "Under 1.0x is conservative; 1.0x–2.0x is moderate; above 2.0x signals high financial leverage (common in utilities/banks, riskier in cyclical tech).",
-        "why_it_matters": "High leverage amplifies returns in boom times but magnifies bankruptcy or restructuring risk when revenue contracts.",
+        "benchmarks": (
+            "Under 1.0x is conservative; 1.0x–2.0x is moderate; above 2.0x signals "
+            "high financial leverage (common in utilities/banks, riskier in tech)."
+        ),
+        "why_it_matters": (
+            "High leverage amplifies returns in boom times but magnifies bankruptcy "
+            "or restructuring risk when revenue contracts."
+        ),
     },
     "Dynamic Wealth Glide-Path": {
         "category": "Portfolio & Simulator",
         "range": "Allocation Strategy",
         "textbook": (
-            "A time-varying asset allocation schedule that begins with higher-beta growth exposure during early "
-            "accumulation years and systematically shifts toward lower-volatility assets as the target horizon approaches."
+            "A time-varying asset allocation schedule that begins with higher-beta "
+            "growth exposure during early accumulation years and shifts toward "
+            "lower-volatility assets as the target horizon approaches."
         ),
-        "formula": "Annualized Rate(t) = Growth_CAGR − 0.5 × (Growth_CAGR − Maint_CAGR) × (t ÷ Horizon)",
-        "benchmarks": "Balances early wealth velocity with late-stage sequence-of-returns protection.",
-        "why_it_matters": "Prevents a severe market drawdown right before your goal date from wiping out decades of compounding.",
+        "formula": "Rate(t) = Growth_CAGR − 0.5 × (Growth_CAGR − Maint_CAGR) × (t ÷ Horizon)",
+        "benchmarks": (
+            "Balances early wealth velocity with late-stage sequence-of-returns "
+            "protection."
+        ),
+        "why_it_matters": (
+            "Prevents a severe market drawdown right before your goal date from "
+            "wiping out decades of compounding."
+        ),
     },
     "Escape Velocity (Compounding Crossover)": {
         "category": "Portfolio & Simulator",
         "range": "Compounding Milestone",
-        "textbook": "The mathematical inflection point in a recurring-contribution portfolio where periodic investment gains exceed periodic out-of-pocket principal deposits.",
+        "textbook": (
+            "The mathematical inflection point in a recurring-contribution portfolio "
+            "where periodic investment gains exceed periodic principal deposits."
+        ),
         "formula": "Portfolio Balance × Monthly Return Rate ≥ Monthly Contribution",
-        "benchmarks": "Typically reached between Years 7 and 14 depending on savings rate and annualized return.",
-        "why_it_matters": "Marks the transition where your invested capital works harder than your paycheck.",
+        "benchmarks": (
+            "Typically reached between Years 7 and 14 depending on savings rate and "
+            "annualized return."
+        ),
+        "why_it_matters": (
+            "Marks the transition where your invested capital works harder than your "
+            "paycheck."
+        ),
     },
 }
 
@@ -520,7 +602,11 @@ def render_balance_sheet_health_chart(card: dict):
     dte = card.get("debt_to_equity")
     runway = card.get("runway_quarters")
 
-    labels = ["Current Ratio (Target ≥ 1.5x)", "Debt-to-Equity (Target ≤ 2.0x)", "Cash Runway Qtrs (Target ≥ 8)"]
+    labels = [
+        "Current Ratio (Target ≥ 1.5x)",
+        "Debt-to-Equity (Target ≤ 2.0x)",
+        "Cash Runway Qtrs (Target ≥ 8)",
+    ]
     actuals = [
         min(curr_ratio, 5.0) if curr_ratio is not None else 0.0,
         min(dte, 5.0) if dte is not None else 0.0,
@@ -570,7 +656,12 @@ def render_2x_sales_chart(card: dict):
     if ann_rev <= 0:
         ann_rev = 500_000_000.0
 
-    multiples = ["1x Sales (Value / Retail)", "2x Sales (Industrial / Balanced)", "4x Sales (Growth Tech)", "8x Sales (High-Margin SaaS)"]
+    multiples = [
+        "1x Sales (Value / Retail)",
+        "2x Sales (Industrial / Balanced)",
+        "4x Sales (Growth Tech)",
+        "8x Sales (High-Margin SaaS)",
+    ]
     valuations = [ann_rev * 1, ann_rev * 2, ann_rev * 4, ann_rev * 8]
 
     fig = go.Figure(
@@ -585,7 +676,10 @@ def render_2x_sales_chart(card: dict):
         ]
     )
     fig.update_layout(
-        title=f"What '2x Sales' Looks Like for {card['ticker']} (Annualized Revenue: {fmt_money(ann_rev)})",
+        title=(
+            f"What '2x Sales' Looks Like for {card['ticker']} "
+            f"(Annualized Rev: {fmt_money(ann_rev)})"
+        ),
         yaxis_title="Implied Company Valuation ($)",
         height=330,
         margin=dict(l=15, r=15, t=45, b=15),
@@ -620,7 +714,7 @@ def render_sales_growth_chart(card: dict):
             )
         )
     fig.update_layout(
-        title=f"5-Year Sales Growth Compounding Curve (Starting from {fmt_money(base_rev)} Revenue)",
+        title=f"5-Year Sales Growth Curve (Starting from {fmt_money(base_rev)} Revenue)",
         yaxis_title="Projected Annual Revenue ($)",
         hovermode="x unified",
         height=330,
@@ -652,9 +746,15 @@ acct = st.session_state.paper_account
 if acct["created"]:
     st.sidebar.caption(f"Account: **{acct['name']}**")
     st.sidebar.metric("Available Virtual Cash", fmt_money(acct["cash"]))
-    st.sidebar.caption(f"Open Positions: **{len(acct['holdings'])}** • Trades Logged: **{len(acct['trades'])}**")
+    st.sidebar.caption(
+        f"Open Positions: **{len(acct['holdings'])}** • "
+        f"Trades Logged: **{len(acct['trades'])}**"
+    )
 else:
-    st.sidebar.info("No mock trading account active yet. Open one in **Mock Trading Account** to practice with virtual cash.")
+    st.sidebar.info(
+        "No mock trading account active yet. Open one in **Mock Trading Account** "
+        "to practice with virtual cash."
+    )
 
 st.sidebar.divider()
 st.sidebar.markdown("### Quick Textbook Lookup")
@@ -667,7 +767,9 @@ picked_term = st.sidebar.selectbox(
 
 if picked_term != "Show All Terms (Textbook Guide)":
     info = DEFINITIONS_DB[picked_term]
-    st.sidebar.info(safe_md(f"**{picked_term}**\n\n{info['textbook']}\n\n`{info['formula']}`"))
+    st.sidebar.info(
+        safe_md(f"**{picked_term}**\n\n{info['textbook']}\n\n`{info['formula']}`")
+    )
     if page != "Definitions & Textbook Guide":
         st.sidebar.button(
             "Open Full Textbook & Charts →",
@@ -688,12 +790,23 @@ st.sidebar.divider()
 with st.sidebar.expander("Ad Revenue & Sponsor Settings", expanded=False):
     show_ads = st.checkbox("Enable Ad Revenue Slots", value=True)
     preview_empty_ads = st.checkbox("Preview Empty Ad Slots", value=False)
-    adsense_pub = st.text_input("Google AdSense Publisher ID", value="", placeholder="ca-pub-xxxxxxxxxxxxxxxx")
-    adsense_slot = st.text_input("AdSense Ad Unit Slot ID", value="", placeholder="1234567890")
-    sponsor_title = st.text_input("Or Custom Sponsor / Affiliate Text", value="", placeholder="e.g., Try Commission-Free Paper Trading")
-    sponsor_url = st.text_input("Custom Sponsor / Affiliate URL", value="", placeholder="https://...")
+    adsense_pub = st.text_input(
+        "Google AdSense Publisher ID", value="", placeholder="ca-pub-xxxxxxxxxxxxxxxx"
+    )
+    adsense_slot = st.text_input(
+        "AdSense Ad Unit Slot ID", value="", placeholder="1234567890"
+    )
+    sponsor_title = st.text_input(
+        "Or Custom Sponsor / Affiliate Text",
+        value="",
+        placeholder="e.g., Try Commission-Free Paper Trading",
+    )
+    sponsor_url = st.text_input(
+        "Custom Sponsor / Affiliate URL", value="", placeholder="https://..."
+    )
     st.caption(
-        "**Monetization Note:** Empty ad slots stay hidden from visitors until you paste a `ca-pub-...` AdSense ID or Sponsor Link above."
+        "**Monetization Note:** Empty ad slots stay hidden from visitors until you "
+        "paste a `ca-pub-...` AdSense ID or Sponsor Link above."
     )
 
 with st.sidebar.expander("AI Coach, YouTube & SEC API Settings", expanded=False):
@@ -702,7 +815,11 @@ with st.sidebar.expander("AI Coach, YouTube & SEC API Settings", expanded=False)
         "Gemini API Key (Optional override)",
         value="",
         type="password",
-        placeholder="Uses server GEMINI_API_KEY automatically if set" if env_gemini else "Paste AIza... key for live dynamic chat",
+        placeholder=(
+            "Uses server GEMINI_API_KEY automatically if set"
+            if env_gemini
+            else "Paste AIza... key for live dynamic chat"
+        ),
     )
     active_gemini_key = user_gemini_key.strip() or env_gemini
 
@@ -721,7 +838,16 @@ with st.sidebar.expander("AI Coach, YouTube & SEC API Settings", expanded=False)
 
 set_identity(sec_email)
 
-render_ad_slot("Sidebar Rectangle", "300×250", show_ads, preview_empty_ads, adsense_pub, adsense_slot, sponsor_title, sponsor_url)
+render_ad_slot(
+    "Sidebar Rectangle",
+    "300×250",
+    show_ads,
+    preview_empty_ads,
+    adsense_pub,
+    adsense_slot,
+    sponsor_title,
+    sponsor_url,
+)
 
 
 # ==============================================================================
@@ -743,9 +869,17 @@ def load_sec_directory() -> list[str]:
     ]
     try:
         from edgar.reference.tickers import get_cik_tickers
+
         df = get_cik_tickers()
         ticker_col = next((c for c in df.columns if "ticker" in c.lower()), None)
-        name_col = next((c for c in df.columns if c.lower() in ("title", "name", "company", "company_name")), None)
+        name_col = next(
+            (
+                c
+                for c in df.columns
+                if c.lower() in ("title", "name", "company", "company_name")
+            ),
+            None,
+        )
         if ticker_col and name_col:
             seen = {item.split(" — ")[0] for item in featured}
             rest = []
@@ -793,9 +927,148 @@ def extract_sales_growth(fin) -> float | None:
         date_cols = [c for c in inc_df.columns if str(c).startswith("20")]
         if len(date_cols) < 2:
             return None
-        rev_rows = inc_df[inc_df["label"].str.contains("Revenue|Sales", case=False, na=False)]
+        rev_rows = inc_df[
+            inc_df["label"].str.contains("Revenue|Sales", case=False, na=False)
+        ]
         if rev_rows.empty:
             return None
         curr_val = pd.to_numeric(rev_rows[date_cols[0]], errors="coerce").dropna()
         prev_val = pd.to_numeric(rev_rows[date_cols[1]], errors="coerce").dropna()
-        if not curr_val.empty and not prev_val.empty and float(prev_val.iloc
+        if not curr_val.empty and not prev_val.empty:
+            c_v = float(curr_val.iloc[0])
+            p_v = float(prev_val.iloc[0])
+            if p_v != 0:
+                return round(((c_v - p_v) / abs(p_v)) * 100.0, 1)
+    except Exception:
+        pass
+    return None
+
+
+@st.cache_data(ttl=1800)
+def build_health_card(ticker: str) -> dict:
+    company = Company(ticker)
+    q_fin = company.get_quarterly_financials()
+    a_fin = company.get_financials()
+    fin = q_fin if q_fin is not None else a_fin
+    is_quarterly = q_fin is not None
+
+    revenue = fin.get_revenue() or 0.0
+    annualized_rev = (revenue * 4.0) if is_quarterly else revenue
+    net_income = fin.get_net_income() or 0.0
+    op_cf = fin.get_operating_cash_flow() or 0.0
+    free_cf = fin.get_free_cash_flow()
+    total_liabilities = fin.get_total_liabilities() or 0.0
+    equity = fin.get_stockholders_equity() or 0.0
+
+    try:
+        curr_assets = fin.get_current_assets() or 0.0
+        curr_liab = fin.get_current_liabilities() or 0.0
+        current_ratio = round(curr_assets / curr_liab, 2) if curr_liab > 0 else None
+    except Exception:
+        current_ratio = None
+
+    sales_growth_pct = extract_sales_growth(fin)
+    if sales_growth_pct is None and is_quarterly and a_fin is not None:
+        sales_growth_pct = extract_sales_growth(a_fin)
+
+    cash, latest_period = extract_cash(fin)
+    if cash == 0.0 and is_quarterly and a_fin is not None:
+        cash, latest_period = extract_cash(a_fin)
+
+    if op_cf >= 0:
+        runway_quarters = None
+        health_badge = "Self-Funding (Positive Operating Cash Flow)"
+    else:
+        quarterly_burn = abs(op_cf) if is_quarterly else abs(op_cf) / 4.0
+        runway_quarters = round(cash / quarterly_burn, 1) if quarterly_burn > 0 else 0.0
+        health_badge = (
+            "Healthy Runway (8+ Quarters)"
+            if runway_quarters >= 8
+            else "Dilution Watch (Under 8 Quarters)"
+        )
+
+    debt_to_equity = round(total_liabilities / equity, 2) if equity > 0 else None
+
+    if op_cf >= 0 and (debt_to_equity is None or debt_to_equity <= 1.5):
+        stress_tier = "Fortress Liquidity"
+    elif op_cf >= 0 or (runway_quarters is not None and runway_quarters >= 8):
+        stress_tier = "Steady Runway"
+    else:
+        stress_tier = "Speculative Cash Burn"
+
+    recent_filings = []
+    try:
+        filings = company.get_filings().head(8)
+        for f in filings:
+            f_url = getattr(f, "homepage_url", None) or getattr(f, "url", "")
+            recent_filings.append(
+                {
+                    "Form": str(getattr(f, "form", "")),
+                    "Filed Date": str(getattr(f, "filing_date", "")),
+                    "Period": str(getattr(f, "report_date", "") or "—"),
+                    "SEC Link": str(f_url),
+                }
+            )
+    except Exception:
+        pass
+
+    insider_filings_count = 0
+    latest_insider_date = "None in past 90d"
+    try:
+        f4 = company.get_filings(form="4").head(5)
+        f4_list = list(f4)
+        insider_filings_count = len(f4_list)
+        if f4_list:
+            latest_insider_date = str(getattr(f4_list[0], "filing_date", "Recent"))
+    except Exception:
+        pass
+
+    return {
+        "ticker": ticker.upper(),
+        "company": company.name,
+        "period": latest_period,
+        "filing_cadence": "Quarterly (10-Q)" if is_quarterly else "Annual (10-K)",
+        "mined_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "cash_on_hand": round(cash, 2),
+        "revenue": round(revenue, 2),
+        "annualized_revenue": round(annualized_rev, 2),
+        "two_x_sales_val": round(annualized_rev * 2.0, 2),
+        "sales_growth_pct": sales_growth_pct,
+        "net_income": round(net_income, 2),
+        "operating_cash_flow": round(op_cf, 2),
+        "free_cash_flow": round(free_cf, 2) if free_cf is not None else None,
+        "current_ratio": current_ratio,
+        "debt_to_equity": debt_to_equity,
+        "runway_quarters": runway_quarters,
+        "health_badge": health_badge,
+        "stress_tier": stress_tier,
+        "recent_filings": recent_filings,
+        "insider_filings_count": insider_filings_count,
+        "latest_insider_date": latest_insider_date,
+    }
+
+
+# ==============================================================================
+# 9. DYNAMIC CONNECTIVE CHATBOT ENGINE (PLAIN ENGLISH OR ANY USER-CHOSEN FIELD)
+# ==============================================================================
+def build_plain_english_fallback(
+    card: dict, user_prompt: str, connect_topic: str
+) -> str:
+    cash_str = fmt_money(card["cash_on_hand"])
+    rev_str = fmt_money(card["annualized_revenue"])
+    two_x_str = fmt_money(card["two_x_sales_val"])
+    cf_str = fmt_money(card["operating_cash_flow"])
+    fcf_str = fmt_money(card["free_cash_flow"])
+    runway = card["runway_quarters"]
+    dte = card["debt_to_equity"]
+    cr = card["current_ratio"]
+    growth = card["sales_growth_pct"]
+
+    q_low = user_prompt.lower()
+    topic_clean = connect_topic.strip()
+
+    if "2x" in q_low or "sales" in q_low or "valuation" in q_low:
+        growth_note = f" ({growth:+.1f}% period sales growth)" if growth is not None else ""
+        base = (
+            f"**Plain English Breakdown ({card['ticker']}):**\n"
+            f"- **What they bring in:** {
